@@ -165,8 +165,11 @@ function Invoke-FullBackup {
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
             
+            # Resolve source path to absolute
+            $absoluteSourcePath = (Resolve-Path $SourcePath).Path
+            
             foreach ($file in $files) {
-                $relativePath = $file.FullName.Substring($SourcePath.Length).TrimStart('\')
+                $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart('\')
                 $targetPath = Join-Path $finalDestination $relativePath
                 $targetDir = Split-Path $targetPath -Parent
                 
@@ -225,6 +228,27 @@ function Invoke-FullBackup {
             }
             
             Write-Verbose "Full backup completed successfully"
+            
+            # Always save integrity state
+            try {
+                Write-Verbose "Saving integrity state..."
+                $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.psm1"
+                if (Test-Path $integrityModule) {
+                    Import-Module $integrityModule -Force
+                    $stateDir = Join-Path $DestinationPath "states"
+                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir
+                    $backupInfo['IntegrityStateSaved'] = $true
+                }
+                else {
+                    Write-Warning "Save-IntegrityState module not found. Integrity state not saved."
+                    $backupInfo['IntegrityStateSaved'] = $false
+                }
+            }
+            catch {
+                Write-Warning "Failed to save integrity state: $_"
+                $backupInfo['IntegrityStateSaved'] = $false
+            }
+            
             return [PSCustomObject]$backupInfo
         }
         catch {
