@@ -2,7 +2,7 @@ name: Test PowerShell Modules with Pester
 
 on:
   push:
-    branches: [ main ]
+    branches: [ feature/backup-modules ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
