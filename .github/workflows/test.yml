@@ -60,31 +60,47 @@ jobs:
         $summary += "| Duration | $duration |`n"
         $summary += "`n**Total Tests:** $($result.TotalCount) | **Success Rate:** ${successRate}%`n`n"
         
-        # Group tests by file
+        # Group tests by container (test file)
         $summary += "## Results by Test File`n`n"
+        $summary += "| Report | Passed | Failed | Skipped | Time |`n"
+        $summary += "|--------|--------|--------|---------|------|`n"
         
-        $testsByFile = $result.Tests | Group-Object -Property { 
-            (Split-Path $_.ScriptBlock.File -Leaf) 
+        $containerStats = @{}
+        foreach ($container in $result.Containers) {
+            $containerName = Split-Path $container.Item.FullName -Leaf
+            $containerTests = $result.Tests | Where-Object { $_.ScriptBlock.File -eq $container.Item.FullName }
+            
+            $passed = ($containerTests | Where-Object Result -eq 'Passed').Count
+            $failed = ($containerTests | Where-Object Result -eq 'Failed').Count
+            $skipped = ($containerTests | Where-Object Result -eq 'Skipped').Count
+            $total = $containerTests.Count
+            $time = if ($container.Duration) { $container.Duration.ToString('s\.fff') + "s" } else { "0s" }
+            
+            $summary += "| ``$containerName`` | $passed | $failed | $skipped | $time |`n"
+            
+            $containerStats[$containerName] = @{
+                Tests = $containerTests
+                Passed = $passed
+                Failed = $failed
+                Skipped = $skipped
+                Total = $total
+                Time = $time
+            }
         }
         
-        foreach ($fileGroup in $testsByFile | Sort-Object Name) {
-            $fileName = $fileGroup.Name
-            $tests = $fileGroup.Group
-            $passed = ($tests | Where-Object Result -eq 'Passed').Count
-            $failed = ($tests | Where-Object Result -eq 'Failed').Count
-            $skipped = ($tests | Where-Object Result -eq 'Skipped').Count
-            $total = $tests.Count
-            $fileRate = if ($total -gt 0) { [math]::Round(($passed / $total) * 100, 1) } else { 0 }
+        # Detailed breakdown per file
+        $summary += "`n## Detailed Results`n`n"
+        foreach ($containerName in $containerStats.Keys | Sort-Object) {
+            $stats = $containerStats[$containerName]
+            $fileRate = if ($stats.Total -gt 0) { [math]::Round(($stats.Passed / $stats.Total) * 100, 1) } else { 0 }
             
-            $summary += "### ``$fileName`` - $fileRate%`n`n"
-            $summary += "| Passed | Failed | Skipped | Total |`n"
-            $summary += "|--------|--------|---------|-------|`n"
-            $summary += "| $passed | $failed | $skipped | $total |`n`n"
+            $summary += "### ``$containerName`` - $fileRate%`n`n"
+            $summary += "**$($stats.Passed) passed**, **$($stats.Failed) failed**, **$($stats.Skipped) skipped** of **$($stats.Total) total** in $($stats.Time)`n`n"
             
             # Show failed tests if any
-            if ($failed -gt 0) {
+            if ($stats.Failed -gt 0) {
                 $summary += "**Failed Tests:**`n"
-                foreach ($test in $tests | Where-Object Result -eq 'Failed') {
+                foreach ($test in $stats.Tests | Where-Object Result -eq 'Failed') {
                     $summary += "- $($test.ExpandedName)`n"
                 }
                 $summary += "`n"
