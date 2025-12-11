@@ -2,7 +2,7 @@ name: Test PowerShell Modules with Pester
 
 on:
   push:
-    branches: [ feature/backup-modules ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
         Import-Module Pester -MinimumVersion 5.0
         $config = New-PesterConfiguration
         $config.Run.Path = ".\tests"
-        $config.Run.Exit = $false  # Don't exit on failure yet, we want to capture results
+        $config.Run.Exit = $false
         $config.Output.Verbosity = "Detailed"
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = ".\testResults.xml"
@@ -43,7 +43,10 @@ jobs:
         $result = Invoke-Pester -Configuration $config
         
         # Create GitHub Actions Summary
-        @"
+        $duration = if ($result.Duration) { $result.Duration.ToString('mm\:ss\.fff') } else { "N/A" }
+        $successRate = if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 }
+        
+        $summary = @"
         # Test Results
         
         | Status | Count |
@@ -51,12 +54,14 @@ jobs:
         | Passed | $($result.PassedCount) |
         | Failed | $($result.FailedCount) |
         | Skipped | $($result.SkippedCount) |
-        | Duration | $($result.Duration.ToString('mm\:ss\.fff')) |
+        | Duration | $duration |
         
         ## Summary
         **Total Tests:** $($result.TotalCount)  
-        **Success Rate:** $(if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 })%
-        "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        **Success Rate:** ${successRate}%
+        "@
+        
+        $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         
         # Exit with appropriate code
         if ($result.FailedCount -gt 0) {
@@ -82,13 +87,15 @@ jobs:
                      elseif ($lineRate -ge 40) { "orange" }
                      else { "red" }
             
-            @"
+            $coverageSummary = @"
+        
+        ## Code Coverage
+        **Coverage:** ${lineRate}%
+        
+        ![Coverage](https://img.shields.io/badge/coverage-${lineRate}%25-${color})
+        "@
             
-            ## Code Coverage
-            **Coverage:** ${lineRate}%
-            
-            ![Coverage](https://img.shields.io/badge/coverage-${lineRate}%25-${color})
-            "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            $coverageSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         }
     
     - name: Upload test results
