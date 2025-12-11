@@ -49,37 +49,47 @@ jobs:
         $duration = if ($result.Duration) { $result.Duration.ToString('mm\:ss\.fff') } else { "N/A" }
         $successRate = if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 }
         
-        $summary = "# Test Results`n`n"
+        "# Test Results" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
         
         # Overall summary
-        $summary += "| Status | Count |`n"
-        $summary += "|--------|-------|`n"
-        $summary += "| Passed | $($result.PassedCount) |`n"
-        $summary += "| Failed | $($result.FailedCount) |`n"
-        $summary += "| Skipped | $($result.SkippedCount) |`n"
-        $summary += "| Duration | $duration |`n"
-        $summary += "`n**Total Tests:** $($result.TotalCount) | **Success Rate:** ${successRate}%`n`n"
+        "| Status | Count |" >> $env:GITHUB_STEP_SUMMARY
+        "|--------|-------|" >> $env:GITHUB_STEP_SUMMARY
+        "| Passed | $($result.PassedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Failed | $($result.FailedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Skipped | $($result.SkippedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Duration | $duration |" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "**Total Tests:** $($result.TotalCount) | **Success Rate:** ${successRate}%" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
         
-        # Group tests by container (test file)
-        $summary += "## Results by Test File`n`n"
-        $summary += "| Report | Passed | Failed | Skipped | Time |`n"
-        $summary += "|--------|--------|--------|---------|------|`n"
+        # Group tests by file
+        "## Results by Test File" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "| Report | Passed | Failed | Skipped | Time |" >> $env:GITHUB_STEP_SUMMARY
+        "|--------|--------|--------|---------|------|" >> $env:GITHUB_STEP_SUMMARY
         
-        $containerStats = @{}
-        foreach ($container in $result.Containers) {
-            $containerName = Split-Path $container.Item.FullName -Leaf
-            $containerTests = $result.Tests | Where-Object { $_.ScriptBlock.File -eq $container.Item.FullName }
+        # Group by ScriptBlock.File property
+        $testsByFile = $result.Tests | Group-Object { Split-Path $_.ScriptBlock.File -Leaf }
+        $fileStats = @{}
+        
+        foreach ($fileGroup in $testsByFile | Sort-Object Name) {
+            $fileName = $fileGroup.Name
+            $tests = $fileGroup.Group
             
-            $passed = ($containerTests | Where-Object Result -eq 'Passed').Count
-            $failed = ($containerTests | Where-Object Result -eq 'Failed').Count
-            $skipped = ($containerTests | Where-Object Result -eq 'Skipped').Count
-            $total = $containerTests.Count
-            $time = if ($container.Duration) { $container.Duration.ToString('s\.fff') + "s" } else { "0s" }
+            $passed = ($tests | Where-Object Result -eq 'Passed').Count
+            $failed = ($tests | Where-Object Result -eq 'Failed').Count
+            $skipped = ($tests | Where-Object Result -eq 'Skipped').Count
+            $total = $tests.Count
             
-            $summary += "| ``$containerName`` | $passed | $failed | $skipped | $time |`n"
+            # Calculate total duration for this file
+            $fileDuration = ($tests | Measure-Object -Property Duration -Sum).Sum
+            $time = if ($fileDuration) { $fileDuration.ToString('s\.fff') + "s" } else { "0s" }
             
-            $containerStats[$containerName] = @{
-                Tests = $containerTests
+            "| ``$fileName`` | $passed | $failed | $skipped | $time |" >> $env:GITHUB_STEP_SUMMARY
+            
+            $fileStats[$fileName] = @{
+                Tests = $tests
                 Passed = $passed
                 Failed = $failed
                 Skipped = $skipped
@@ -89,25 +99,27 @@ jobs:
         }
         
         # Detailed breakdown per file
-        $summary += "`n## Detailed Results`n`n"
-        foreach ($containerName in $containerStats.Keys | Sort-Object) {
-            $stats = $containerStats[$containerName]
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "## Detailed Results" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        foreach ($fileName in $fileStats.Keys | Sort-Object) {
+            $stats = $fileStats[$fileName]
             $fileRate = if ($stats.Total -gt 0) { [math]::Round(($stats.Passed / $stats.Total) * 100, 1) } else { 0 }
             
-            $summary += "### ``$containerName`` - $fileRate%`n`n"
-            $summary += "**$($stats.Passed) passed**, **$($stats.Failed) failed**, **$($stats.Skipped) skipped** of **$($stats.Total) total** in $($stats.Time)`n`n"
+            "### ``$fileName`` - $fileRate%" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "**$($stats.Passed) passed**, **$($stats.Failed) failed**, **$($stats.Skipped) skipped** of **$($stats.Total) total** in $($stats.Time)" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
             
             # Show failed tests if any
             if ($stats.Failed -gt 0) {
-                $summary += "**Failed Tests:**`n"
+                "**Failed Tests:**" >> $env:GITHUB_STEP_SUMMARY
                 foreach ($test in $stats.Tests | Where-Object Result -eq 'Failed') {
-                    $summary += "- $($test.ExpandedName)`n"
+                    "- $($test.ExpandedName)" >> $env:GITHUB_STEP_SUMMARY
                 }
-                $summary += "`n"
+                "" >> $env:GITHUB_STEP_SUMMARY
             }
         }
-        
-        $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         
         # Exit with appropriate code
         if ($result.FailedCount -gt 0) {
