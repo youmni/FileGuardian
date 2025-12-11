@@ -84,8 +84,13 @@ jobs:
             $total = $tests.Count
             
             # Calculate total duration for this file
-            $fileDuration = ($tests | Measure-Object -Property Duration -Sum).Sum
-            $time = if ($fileDuration) { $fileDuration.ToString('s\.fff') + "s" } else { "0s" }
+            $fileDuration = [TimeSpan]::Zero
+            foreach ($test in $tests) {
+                if ($test.Duration) {
+                    $fileDuration = $fileDuration.Add($test.Duration)
+                }
+            }
+            $time = if ($fileDuration.TotalSeconds -gt 0) { $fileDuration.ToString('s\.fff') + "s" } else { "0s" }
             
             "| ``$fileName`` | $passed | $failed | $skipped | $time |" >> $env:GITHUB_STEP_SUMMARY
             
