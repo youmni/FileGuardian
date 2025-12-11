@@ -1,8 +1,10 @@
 name: Test PowerShell Modules with Pester
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
-    branches: main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -27,10 +29,16 @@ jobs:
         $config.Run.Path = ".\tests"
         $config.Run.Exit = $true
         $config.Output.Verbosity = "Detailed"
-        $config.CodeCoverage.Enabled = $true
-        $config.CodeCoverage.Path = ".\src\**\*.psm1"
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = ".\testResults.xml"
+        
+        # Get coverage files
+        $coverageFiles = Get-ChildItem -Path ".\src" -Recurse -Filter "*.psm1" | Select-Object -ExpandProperty FullName
+        if ($coverageFiles) {
+            $config.CodeCoverage.Enabled = $true
+            $config.CodeCoverage.Path = $coverageFiles
+            $config.CodeCoverage.OutputPath = ".\coverage.xml"
+        }
         
         Invoke-Pester -Configuration $config
     
