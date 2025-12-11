@@ -137,31 +137,6 @@ jobs:
             exit 0
         }
     
-    - name: Generate Coverage Badge
-      if: always()
-      shell: pwsh
-      run: |
-        if (Test-Path ".\coverage.xml") {
-            [xml]$coverage = Get-Content ".\coverage.xml"
-            $metrics = $coverage.coverage.project.metrics
-            $lineRate = [math]::Round([decimal]$metrics.LineRate * 100, 2)
-            
-            $color = if ($lineRate -ge 80) { "brightgreen" } 
-                     elseif ($lineRate -ge 60) { "yellow" }
-                     elseif ($lineRate -ge 40) { "orange" }
-                     else { "red" }
-            
-            $coverageSummary = @"
-        
-        ## Code Coverage
-        **Coverage:** ${lineRate}%
-        
-        ![Coverage](https://img.shields.io/badge/coverage-${lineRate}%25-${color})
-        "@
-            
-            $coverageSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-        }
-    
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
