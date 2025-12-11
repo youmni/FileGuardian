@@ -27,7 +27,7 @@ jobs:
         Import-Module Pester -MinimumVersion 5.0
         $config = New-PesterConfiguration
         $config.Run.Path = ".\tests"
-        $config.Run.Exit = $true
+        $config.Run.Exit = $false  # Don't exit on failure yet, we want to capture results
         $config.Output.Verbosity = "Detailed"
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = ".\testResults.xml"
@@ -40,7 +40,56 @@ jobs:
             $config.CodeCoverage.OutputPath = ".\coverage.xml"
         }
         
-        Invoke-Pester -Configuration $config
+        $result = Invoke-Pester -Configuration $config
+        
+        # Create GitHub Actions Summary
+        @"
+        # Test Results
+        
+        | Status | Count |
+        |--------|-------|
+        | Passed | $($result.PassedCount) |
+        | Failed | $($result.FailedCount) |
+        | Skipped | $($result.SkippedCount) |
+        | Duration | $($result.Duration.ToString('mm\:ss\.fff')) |
+        
+        ## Summary
+        **Total Tests:** $($result.TotalCount)  
+        **Success Rate:** $(if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 })%
+        "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        
+        # Exit with appropriate code
+        if ($result.FailedCount -gt 0) {
+            Write-Error "$($result.FailedCount) test(s) failed"
+            exit 1
+        }
+        else {
+            Write-Host "All tests passed!" -ForegroundColor Green
+            exit 0
+        }
+    
+    - name: Generate Coverage Badge
+      if: always()
+      shell: pwsh
+      run: |
+        if (Test-Path ".\coverage.xml") {
+            [xml]$coverage = Get-Content ".\coverage.xml"
+            $metrics = $coverage.coverage.project.metrics
+            $lineRate = [math]::Round([decimal]$metrics.LineRate * 100, 2)
+            
+            $color = if ($lineRate -ge 80) { "brightgreen" } 
+                     elseif ($lineRate -ge 60) { "yellow" }
+                     elseif ($lineRate -ge 40) { "orange" }
+                     else { "red" }
+            
+            @"
+            
+            ## Code Coverage
+            **Coverage:** ${lineRate}%
+            
+            ![Coverage](https://img.shields.io/badge/coverage-${lineRate}%25-${color})
+            "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+        }
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
