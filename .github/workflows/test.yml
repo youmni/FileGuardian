@@ -1,10 +1,15 @@
 name: Test PowerShell Modules with Pester
 
 on:
+  push:
+    branches: [ feature/* ]
   pull_request:
-    branches: main
+    branches: [ main ]
   workflow_dispatch:
-
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
 jobs:
   test:
     name: Run Pester Tests
@@ -25,14 +30,112 @@ jobs:
         Import-Module Pester -MinimumVersion 5.0
         $config = New-PesterConfiguration
         $config.Run.Path = ".\tests"
-        $config.Run.Exit = $true
+        $config.Run.Exit = $false
+        $config.Run.PassThru = $true
         $config.Output.Verbosity = "Detailed"
-        $config.CodeCoverage.Enabled = $true
-        $config.CodeCoverage.Path = ".\src\**\*.psm1"
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = ".\testResults.xml"
         
-        Invoke-Pester -Configuration $config
+        # Get coverage files
+        $coverageFiles = Get-ChildItem -Path ".\src" -Recurse -Filter "*.psm1" | Select-Object -ExpandProperty FullName
+        if ($coverageFiles) {
+            $config.CodeCoverage.Enabled = $true
+            $config.CodeCoverage.Path = $coverageFiles
+            $config.CodeCoverage.OutputPath = ".\coverage.xml"
+        }
+        
+        $result = Invoke-Pester -Configuration $config
+        
+        # Create GitHub Actions Summary
+        $duration = if ($result.Duration) { $result.Duration.ToString('mm\:ss\.fff') } else { "N/A" }
+        $successRate = if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 }
+        
+        "# Test Results" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        
+        # Overall summary
+        "| Status | Count |" >> $env:GITHUB_STEP_SUMMARY
+        "|--------|-------|" >> $env:GITHUB_STEP_SUMMARY
+        "| Passed | $($result.PassedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Failed | $($result.FailedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Skipped | $($result.SkippedCount) |" >> $env:GITHUB_STEP_SUMMARY
+        "| Duration | $duration |" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "**Total Tests:** $($result.TotalCount) | **Success Rate:** ${successRate}%" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        
+        # Group tests by file
+        "## Results by Test File" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "| Report | Passed | Failed | Skipped | Time |" >> $env:GITHUB_STEP_SUMMARY
+        "|--------|--------|--------|---------|------|" >> $env:GITHUB_STEP_SUMMARY
+        
+        # Group by ScriptBlock.File property
+        $testsByFile = $result.Tests | Group-Object { Split-Path $_.ScriptBlock.File -Leaf }
+        $fileStats = @{}
+        
+        foreach ($fileGroup in $testsByFile | Sort-Object Name) {
+            $fileName = $fileGroup.Name
+            $tests = $fileGroup.Group
+            
+            $passed = ($tests | Where-Object Result -eq 'Passed').Count
+            $failed = ($tests | Where-Object Result -eq 'Failed').Count
+            $skipped = ($tests | Where-Object Result -eq 'Skipped').Count
+            $total = $tests.Count
+            
+            # Calculate total duration for this file
+            $fileDuration = [TimeSpan]::Zero
+            foreach ($test in $tests) {
+                if ($test.Duration) {
+                    $fileDuration = $fileDuration.Add($test.Duration)
+                }
+            }
+            $time = if ($fileDuration.TotalSeconds -gt 0) { $fileDuration.ToString('s\.fff') + "s" } else { "0s" }
+            
+            "| ``$fileName`` | $passed | $failed | $skipped | $time |" >> $env:GITHUB_STEP_SUMMARY
+            
+            $fileStats[$fileName] = @{
+                Tests = $tests
+                Passed = $passed
+                Failed = $failed
+                Skipped = $skipped
+                Total = $total
+                Time = $time
+            }
+        }
+        
+        # Detailed breakdown per file
+        "" >> $env:GITHUB_STEP_SUMMARY
+        "## Detailed Results" >> $env:GITHUB_STEP_SUMMARY
+        "" >> $env:GITHUB_STEP_SUMMARY
+        foreach ($fileName in $fileStats.Keys | Sort-Object) {
+            $stats = $fileStats[$fileName]
+            $fileRate = if ($stats.Total -gt 0) { [math]::Round(($stats.Passed / $stats.Total) * 100, 1) } else { 0 }
+            
+            "### ``$fileName`` - $fileRate%" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "**$($stats.Passed) passed**, **$($stats.Failed) failed**, **$($stats.Skipped) skipped** of **$($stats.Total) total** in $($stats.Time)" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            
+            # Show failed tests if any
+            if ($stats.Failed -gt 0) {
+                "**Failed Tests:**" >> $env:GITHUB_STEP_SUMMARY
+                foreach ($test in $stats.Tests | Where-Object Result -eq 'Failed') {
+                    "- $($test.ExpandedName)" >> $env:GITHUB_STEP_SUMMARY
+                }
+                "" >> $env:GITHUB_STEP_SUMMARY
+            }
+        }
+        
+        # Exit with appropriate code
+        if ($result.FailedCount -gt 0) {
+            Write-Error "$($result.FailedCount) test(s) failed"
+            exit 1
+        }
+        else {
+            Write-Host "All tests passed!" -ForegroundColor Green
+            exit 0
+        }
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -40,10 +143,3 @@ jobs:
       with:
         name: test-results
         path: testResults.xml
-    
-    - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
-      with:
-        files: testResults.xml
-        check_name: Test Results
