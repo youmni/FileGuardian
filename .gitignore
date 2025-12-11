@@ -1,0 +1,17 @@
+# Backup files
+backups/
+*.zip
+
+# Test data
+test-data/
+
+# Logs
+logs/
+*.log
+
+# Reports
+reports/
+
+# Temporary files
+*.tmp
+*.bak
