@@ -49,20 +49,47 @@ jobs:
         $duration = if ($result.Duration) { $result.Duration.ToString('mm\:ss\.fff') } else { "N/A" }
         $successRate = if ($result.TotalCount -gt 0) { [math]::Round(($result.PassedCount / $result.TotalCount) * 100, 2) } else { 0 }
         
-        $summary = @"
-        # Test Results
+        $summary = "# Test Results`n`n"
         
-        | Status | Count |
-        |--------|-------|
-        | Passed | $($result.PassedCount) |
-        | Failed | $($result.FailedCount) |
-        | Skipped | $($result.SkippedCount) |
-        | Duration | $duration |
+        # Overall summary
+        $summary += "| Status | Count |`n"
+        $summary += "|--------|-------|`n"
+        $summary += "| Passed | $($result.PassedCount) |`n"
+        $summary += "| Failed | $($result.FailedCount) |`n"
+        $summary += "| Skipped | $($result.SkippedCount) |`n"
+        $summary += "| Duration | $duration |`n"
+        $summary += "`n**Total Tests:** $($result.TotalCount) | **Success Rate:** ${successRate}%`n`n"
         
-        ## Summary
-        **Total Tests:** $($result.TotalCount)  
-        **Success Rate:** ${successRate}%
-        "@
+        # Group tests by file
+        $summary += "## Results by Test File`n`n"
+        
+        $testsByFile = $result.Tests | Group-Object -Property { 
+            (Split-Path $_.ScriptBlock.File -Leaf) 
+        }
+        
+        foreach ($fileGroup in $testsByFile | Sort-Object Name) {
+            $fileName = $fileGroup.Name
+            $tests = $fileGroup.Group
+            $passed = ($tests | Where-Object Result -eq 'Passed').Count
+            $failed = ($tests | Where-Object Result -eq 'Failed').Count
+            $skipped = ($tests | Where-Object Result -eq 'Skipped').Count
+            $total = $tests.Count
+            $fileRate = if ($total -gt 0) { [math]::Round(($passed / $total) * 100, 1) } else { 0 }
+            
+            $summary += "### ``$fileName`` - $fileRate%`n`n"
+            $summary += "| Passed | Failed | Skipped | Total |`n"
+            $summary += "|--------|--------|---------|-------|`n"
+            $summary += "| $passed | $failed | $skipped | $total |`n`n"
+            
+            # Show failed tests if any
+            if ($failed -gt 0) {
+                $summary += "**Failed Tests:**`n"
+                foreach ($test in $tests | Where-Object Result -eq 'Failed') {
+                    $summary += "- $($test.ExpandedName)`n"
+                }
+                $summary += "`n"
+            }
+        }
         
         $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
         
