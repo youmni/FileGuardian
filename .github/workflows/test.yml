@@ -1,0 +1,49 @@
+name: Test PowerShell Modules with Pester
+
+on:
+  pull_request:
+    branches: main
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Pester Tests
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+    
+    - name: Run tests
+      shell: pwsh
+      run: |
+        Import-Module Pester -MinimumVersion 5.0
+        $config = New-PesterConfiguration
+        $config.Run.Path = ".\tests"
+        $config.Run.Exit = $true
+        $config.Output.Verbosity = "Detailed"
+        $config.CodeCoverage.Enabled = $true
+        $config.CodeCoverage.Path = ".\src\**\*.psm1"
+        $config.TestResult.Enabled = $true
+        $config.TestResult.OutputPath = ".\testResults.xml"
+        
+        Invoke-Pester -Configuration $config
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: testResults.xml
+    
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      if: always()
+      with:
+        files: testResults.xml
+        check_name: Test Results
