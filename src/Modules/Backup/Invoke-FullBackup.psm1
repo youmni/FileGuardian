@@ -26,6 +26,9 @@ function Invoke-FullBackup {
     .PARAMETER ExcludePatterns
         Array of file patterns to exclude from backup (e.g., "*.tmp", "*.log"). If not specified, uses config file.
     
+    .PARAMETER ReportFormat
+        Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
+    
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data"
         Uses destination and settings from config file
@@ -35,7 +38,7 @@ function Invoke-FullBackup {
         Override destination from config
     
     .EXAMPLE
-        Invoke-FullBackup -Compress -BackupName "MyBackup"
+        Invoke-FullBackup -Compress -BackupName "MyBackup" -ReportFormat "JSON"
     #>
     [CmdletBinding()]
     param(
@@ -59,7 +62,11 @@ function Invoke-FullBackup {
         [switch]$Compress,
         
         [Parameter()]
-        [string[]]$ExcludePatterns
+        [string[]]$ExcludePatterns,
+        
+        [Parameter()]
+        [ValidateSet("JSON", "HTML")]
+        [string]$ReportFormat = "JSON"
     )
     
     begin {
@@ -247,6 +254,51 @@ function Invoke-FullBackup {
             catch {
                 Write-Warning "Failed to save integrity state: $_"
                 $backupInfo['IntegrityStateSaved'] = $false
+            }
+            
+            # Generate and sign report
+            try {
+                Write-Verbose "Generating backup report ($ReportFormat)..."
+                $signModule = Join-Path $PSScriptRoot "..\Reporting\Sign-Report.psm1"
+                
+                # Select report module based on format
+                $reportModule = switch ($ReportFormat) {
+                    "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
+                    "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.psm1" }
+                    default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
+                }
+                
+                if ((Test-Path $reportModule) -and (Test-Path $signModule)) {
+                    Import-Module $reportModule -Force
+                    Import-Module $signModule -Force
+                    
+                    # Generate report
+                    $reportInfo = if ($ReportFormat -eq "JSON") {
+                        Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
+                    elseif ($ReportFormat -eq "HTML") {
+                        Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
+                    
+                    # Sign report
+                    if ($reportInfo -and $reportInfo.ReportPath) {
+                        $signInfo = Sign-Report -ReportPath $reportInfo.ReportPath
+                        $backupInfo['ReportPath'] = $reportInfo.ReportPath
+                        $backupInfo['ReportFormat'] = $ReportFormat
+                        $backupInfo['ReportSigned'] = $true
+                        $backupInfo['ReportSignature'] = $signInfo.Hash
+                    }
+                }
+                else {
+                    Write-Verbose "Reporting modules not found. Report not generated."
+                    $backupInfo['ReportPath'] = $null
+                    $backupInfo['ReportSigned'] = $false
+                }
+            }
+            catch {
+                Write-Warning "Failed to generate or sign report: $_"
+                $backupInfo['ReportPath'] = $null
+                $backupInfo['ReportSigned'] = $false
             }
             
             return [PSCustomObject]$backupInfo
