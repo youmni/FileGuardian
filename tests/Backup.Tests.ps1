@@ -1,6 +1,12 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:BackupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
+    $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
+    
+    # Import Logging module first (dependency)
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    
+    # Import other modules
     Import-Module (Join-Path $script:BackupModulePath "Compress-Backup.psm1") -Force
     Import-Module (Join-Path $script:BackupModulePath "Invoke-FullBackup.psm1") -Force
     Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force

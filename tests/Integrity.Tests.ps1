@@ -1,7 +1,17 @@
 BeforeAll {
-    # Import modules
-    $modulePath = Join-Path $PSScriptRoot "..\src\Modules\Integrity\Integrity.psd1"
-    Import-Module $modulePath -Force
+    # Import required modules
+    $ProjectRoot = Split-Path -Parent $PSScriptRoot
+    $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
+    $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
+    
+    # Import Logging module first (dependency)
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    
+    # Import Integrity modules
+    Import-Module (Join-Path $script:IntegrityModulePath "Get-FileIntegrityHash.psm1") -Force
+    Import-Module (Join-Path $script:IntegrityModulePath "Save-IntegrityState.psm1") -Force
+    Import-Module (Join-Path $script:IntegrityModulePath "Compare-BackupIntegrity.psm1") -Force
+    Import-Module (Join-Path $script:IntegrityModulePath "Test-BackupIntegrity.psm1") -Force
 }
 
 Describe "Get-FileIntegrityHash" {
