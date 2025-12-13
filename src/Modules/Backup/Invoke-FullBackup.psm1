@@ -232,6 +232,21 @@ function Invoke-FullBackup {
             
             Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
+            # Save backup metadata for integrity verification
+            try {
+                $metadataPath = Join-Path $backupDestination ".backup-metadata.json"
+                $metadata = @{
+                    BackupType = "Full"
+                    Timestamp = $timestamp
+                    FilesBackedUp = $copiedFiles
+                }
+                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataPath -Encoding UTF8
+                Write-Verbose "Backup metadata saved: $metadataPath"
+            }
+            catch {
+                Write-Warning "Failed to save backup metadata: $_"
+            }
+            
             # Always save integrity state
             try {
                 Write-Log -Message "Saving integrity state..." -Level Info
