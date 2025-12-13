@@ -77,9 +77,31 @@ function Test-BackupIntegrity {
             # Resolve backup path to absolute
             $absoluteBackupPath = (Resolve-Path $pathToVerify).Path
             
+            # Check for backup metadata (for incremental/differential backups)
+            $metadataPath = Join-Path $absoluteBackupPath ".backup-metadata.json"
+            $backupMetadata = $null
+            $isIncrementalOrDifferential = $false
+            
+            if (Test-Path $metadataPath) {
+                try {
+                    $backupMetadata = Get-Content -Path $metadataPath -Raw | ConvertFrom-Json
+                    $isIncrementalOrDifferential = ($backupMetadata.BackupType -eq "Incremental" -or $backupMetadata.BackupType -eq "Differential")
+                    Write-Verbose "Detected $($backupMetadata.BackupType) backup"
+                }
+                catch {
+                    Write-Warning "Could not read backup metadata: $_"
+                }
+            }
+            else {
+                Write-Verbose "No metadata found, assuming Full backup"
+            }
+            
             # Calculate current hashes for backup
             Write-Verbose "Calculating current hashes for backup..."
             $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -Recurse
+            
+            # Exclude metadata file from verification
+            $currentHashes = $currentHashes | Where-Object { $_.RelativePath -ne ".backup-metadata.json" }
             
             # Create lookup tables
             $stateHash = @{}
@@ -105,7 +127,11 @@ function Test-BackupIntegrity {
             # Check files in state
             foreach ($path in $stateHash.Keys) {
                 if (-not $currentHash.ContainsKey($path)) {
-                    $missing += $stateHash[$path]
+                    # For incremental/differential: missing files are expected (they weren't changed)
+                    # For full backup: missing files are an error
+                    if (-not $isIncrementalOrDifferential) {
+                        $missing += $stateHash[$path]
+                    }
                 }
                 elseif ($currentHash[$path].Hash -ne $stateHash[$path].Hash) {
                     $corrupted += [PSCustomObject]@{

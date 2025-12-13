@@ -119,9 +119,7 @@ function Invoke-FileGuardian {
         # Set up paths
         $scriptRoot = $PSScriptRoot
         $modulesPath = Join-Path $scriptRoot "Modules"
-        
-        # Logging module wordt automatisch geladen via manifest
-        
+            
         # Suppress output if Quiet mode
         if ($Quiet) {
             $VerbosePreference = 'SilentlyContinue'
@@ -136,10 +134,8 @@ function Invoke-FileGuardian {
         try {
             switch ($Action) {
                 'Backup' {
-                    # Modules worden automatisch geladen via manifest
                     Write-Log -Message "Starting backup operation..." -Level Info
                     
-                    # Module is automatisch geladen via manifest
                     switch ($BackupType) {
                         'Full' {
                             Write-Log -Message "Starting FULL backup..." -Level Info
@@ -201,13 +197,9 @@ function Invoke-FileGuardian {
                         Write-Log -Message "Files backed up: $($result.FilesBackedUp)" -Level Info
                         Write-Log -Message "Total size: $($result.TotalSizeMB) MB" -Level Info
                         
-                        # Sign report (altijd)
-                        if ($result.ReportPath -and (Test-Path $result.ReportPath)) {
-                            Write-Log -Message "Signing backup report..." -Level Info
-                            # Module is automatisch geladen via manifest
-                            Protect-Report -ReportPath $result.ReportPath
-                        } else {
-                            Write-Log -Message "Report path not available for signing" -Level Warning
+                        # Report is already signed by backup modules
+                        if ($result.ReportSigned) {
+                            Write-Log -Message "Report signature: $($result.ReportSignature)" -Level Info
                         }
                         
                         return $result
@@ -218,7 +210,6 @@ function Invoke-FileGuardian {
                     Write-Log -Message "Starting integrity verification..." -Level Info
                     Write-Log -Message "Backup path: $BackupPath" -Level Info
                     
-                    # Module is automatisch geladen via manifest
                     # Execute verification
                     $verifyParams = @{
                         BackupPath = $BackupPath
@@ -245,7 +236,6 @@ function Invoke-FileGuardian {
                     Write-Log -Message "Verifying report signature..." -Level Info
                     Write-Log -Message "Report path: $ReportPath" -Level Info
                     
-                    # Module is automatisch geladen via manifest
                     # Execute verification - returns object with IsValid property
                     $result = Confirm-ReportSignature -ReportPath $ReportPath
                     
