@@ -300,6 +300,24 @@ function Invoke-IncrementalBackup {
                 }
             }
             
+            Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
+            
+            # Save backup metadata for integrity verification BEFORE compression
+            try {
+                $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
+                $metadata = @{
+                    BackupType = "Incremental"
+                    Timestamp = $timestamp
+                    BaseBackup = $previousState.Timestamp
+                    FilesBackedUp = $copiedFiles
+                }
+                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataTargetPath -Encoding UTF8
+                Write-Verbose "Backup metadata saved: $metadataTargetPath"
+            }
+            catch {
+                Write-Warning "Failed to save backup metadata: $_"
+            }
+            
             # Handle compression or return direct copy info
             if ($Compress) {
                 $zipPath = "$backupDestination.zip"
@@ -352,24 +370,6 @@ function Invoke-IncrementalBackup {
                     ChangesDetected = $true
                     BaseBackup = $previousState.Timestamp
                 }
-            }
-            
-            Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
-            
-            # Save backup metadata for integrity verification
-            try {
-                $metadataPath = Join-Path $backupDestination ".backup-metadata.json"
-                $metadata = @{
-                    BackupType = "Incremental"
-                    Timestamp = $timestamp
-                    BaseBackup = $previousState.Timestamp
-                    FilesBackedUp = $copiedFiles
-                }
-                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataPath -Encoding UTF8
-                Write-Verbose "Backup metadata saved: $metadataPath"
-            }
-            catch {
-                Write-Warning "Failed to save backup metadata: $_"
             }
             
             # Always save integrity state (update to reflect current state)

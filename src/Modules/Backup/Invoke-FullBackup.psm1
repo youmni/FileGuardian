@@ -188,6 +188,23 @@ function Invoke-FullBackup {
                 }
             }
             
+            Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
+            
+            # Save backup metadata for integrity verification BEFORE compression
+            try {
+                $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
+                $metadata = @{
+                    BackupType = "Full"
+                    Timestamp = $timestamp
+                    FilesBackedUp = $copiedFiles
+                }
+                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataTargetPath -Encoding UTF8
+                Write-Verbose "Backup metadata saved: $metadataTargetPath"
+            }
+            catch {
+                Write-Warning "Failed to save backup metadata: $_"
+            }
+            
             # Handle compression or return direct copy info
             if ($Compress) {
                 $zipPath = "$backupDestination.zip"
@@ -228,23 +245,6 @@ function Invoke-FullBackup {
                     TotalSizeMB = [Math]::Round($totalSize/1MB, 2)
                     Compressed = $false
                 }
-            }
-            
-            Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
-            
-            # Save backup metadata for integrity verification
-            try {
-                $metadataPath = Join-Path $backupDestination ".backup-metadata.json"
-                $metadata = @{
-                    BackupType = "Full"
-                    Timestamp = $timestamp
-                    FilesBackedUp = $copiedFiles
-                }
-                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataPath -Encoding UTF8
-                Write-Verbose "Backup metadata saved: $metadataPath"
-            }
-            catch {
-                Write-Warning "Failed to save backup metadata: $_"
             }
             
             # Always save integrity state
