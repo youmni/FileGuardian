@@ -71,6 +71,7 @@ FileGuardian/
 │   ├── Install-Dependencies.ps1
 │   └── Register-ScheduledTask.ps1
 │
+├── Start-FileGuardian.ps1  # Main entry point wrapper script
 └── README.md
 ```
 

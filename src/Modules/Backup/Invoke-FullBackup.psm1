@@ -26,6 +26,9 @@ function Invoke-FullBackup {
     .PARAMETER ExcludePatterns
         Array of file patterns to exclude from backup (e.g., "*.tmp", "*.log"). If not specified, uses config file.
     
+    .PARAMETER ReportFormat
+        Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
+    
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data"
         Uses destination and settings from config file
@@ -35,7 +38,7 @@ function Invoke-FullBackup {
         Override destination from config
     
     .EXAMPLE
-        Invoke-FullBackup -Compress -BackupName "MyBackup"
+        Invoke-FullBackup -Compress -BackupName "MyBackup" -ReportFormat "JSON"
     #>
     [CmdletBinding()]
     param(
@@ -59,15 +62,17 @@ function Invoke-FullBackup {
         [switch]$Compress,
         
         [Parameter()]
-        [string[]]$ExcludePatterns
+        [string[]]$ExcludePatterns,
+        
+        [Parameter()]
+        [ValidateSet("JSON", "HTML")]
+        [string]$ReportFormat = "JSON"
     )
     
     begin {
         # Import Read-Config module
-        $configModule = Join-Path $PSScriptRoot "..\..\Modules\Config\Read-Config.psm1"
-        if (Test-Path $configModule) {
-            Import-Module $configModule -Force
-        }
+        $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.psm1"
+        Import-Module $configModule -Force
         
         # Load configuration
         try {
@@ -78,7 +83,7 @@ function Invoke-FullBackup {
             }
         }
         catch {
-            Write-Verbose "Could not load config file: $_. Using parameters only."
+            Write-Log -Message "Could not load config file: $_. Using parameters only." -Level Warning
             $config = $null
         }
         
@@ -128,9 +133,7 @@ function Invoke-FullBackup {
             }
         }
         
-        Write-Verbose "Starting full backup..."
-        Write-Verbose "Source: $SourcePath"
-        Write-Verbose "Destination: $backupDestination"
+        Write-Log -Message "Starting full backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
     
     process {
@@ -142,7 +145,7 @@ function Invoke-FullBackup {
             }
             
             # Get all files from source
-            Write-Verbose "Scanning source directory..."
+            Write-Log -Message "Scanning source directory..." -Level Info
             $files = Get-ChildItem -Path $SourcePath -Recurse -File
             
             # Apply exclusions
@@ -157,7 +160,7 @@ function Invoke-FullBackup {
             $copiedFiles = 0
             $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
             
-            Write-Verbose "Found $totalFiles files to backup (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)"
+            Write-Log -Message "Found $totalFiles files to backup (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)" -Level Info
             
             # Copy files to temporary or final destination
             $tempDir = Join-Path $env:TEMP "FileGuardian_$timestamp"
@@ -227,11 +230,11 @@ function Invoke-FullBackup {
                 }
             }
             
-            Write-Verbose "Full backup completed successfully"
+            Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
             # Always save integrity state
             try {
-                Write-Verbose "Saving integrity state..."
+                Write-Log -Message "Saving integrity state..." -Level Info
                 $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.psm1"
                 if (Test-Path $integrityModule) {
                     Import-Module $integrityModule -Force
@@ -249,6 +252,60 @@ function Invoke-FullBackup {
                 $backupInfo['IntegrityStateSaved'] = $false
             }
             
+            # Generate report (ALWAYS - this is mandatory)
+            try {
+                Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info
+                $signModule = Join-Path $PSScriptRoot "..\Reporting\Protect-Report.psm1"
+                
+                # Select report module based on format
+                $reportModule = switch ($ReportFormat) {
+                    "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
+                    "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.psm1" }
+                    "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.psm1" }
+                    default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
+                }
+                
+                if (Test-Path $reportModule) {
+                    Import-Module $reportModule -Force
+                    
+                    # Generate report (ALWAYS)
+                    $reportInfo = if ($ReportFormat -eq "JSON") {
+                        Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
+                    elseif ($ReportFormat -eq "HTML") {
+                        Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
+                    elseif ($ReportFormat -eq "CSV") {
+                        Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
+                    
+                    if ($reportInfo -and $reportInfo.ReportPath) {
+                        $backupInfo['ReportPath'] = $reportInfo.ReportPath
+                        $backupInfo['ReportFormat'] = $ReportFormat
+                        Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
+                        
+                        # Optionally sign report if signing module exists
+                        if (Test-Path $signModule) {
+                            Import-Module $signModule -Force
+                            $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
+                            $backupInfo['ReportSigned'] = $true
+                            $backupInfo['ReportSignature'] = $signInfo.Hash
+                            Write-Log -Message "Report signed successfully" -Level Info
+                        }
+                    }
+                }
+                else {
+                    Write-Log -Message "Report module not found: $reportModule" -Level Error
+                    $backupInfo['ReportPath'] = $null
+                    $backupInfo['ReportSigned'] = $false
+                }
+            }
+            catch {
+                Write-Log -Message "Failed to generate report: $_" -Level Error
+                $backupInfo['ReportPath'] = $null
+                $backupInfo['ReportSigned'] = $false
+            }
+            
             return [PSCustomObject]$backupInfo
         }
         catch {
@@ -257,3 +314,5 @@ function Invoke-FullBackup {
         }
     }
 }
+
+Export-ModuleMember -Function Invoke-FullBackup

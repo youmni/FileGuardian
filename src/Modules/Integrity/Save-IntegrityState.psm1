@@ -65,13 +65,9 @@ function Save-IntegrityState {
             }
             
             # Save new latest
-            Write-Verbose "Saving new state to latest.json"
             $state | ConvertTo-Json -Depth 10 | Set-Content -Path $latestFile -Encoding UTF8
             
-            Write-Host "Integrity state saved successfully" -ForegroundColor Green
-            Write-Host "  Files tracked: $($state.FileCount)" -ForegroundColor Cyan
-            Write-Host "  Total size: $([math]::Round($state.TotalSize / 1MB, 2)) MB" -ForegroundColor Cyan
-            Write-Host "  State file: $latestFile" -ForegroundColor Cyan
+            Write-Log -Message "Integrity state saved: $($state.FileCount) files tracked, $([math]::Round($state.TotalSize / 1MB, 2)) MB total" -Level Success
             
             return $state
         }

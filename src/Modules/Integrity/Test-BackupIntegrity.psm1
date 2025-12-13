@@ -149,7 +149,7 @@ function Test-BackupIntegrity {
                 }
             }
             
-            # Display results
+            # Log and display results
             Write-Host "`n=== Backup Integrity Verification ===" -ForegroundColor Cyan
             Write-Host "Backup:    $BackupPath" -ForegroundColor Gray
             Write-Host "State:     $($state.Timestamp)" -ForegroundColor Gray
@@ -158,9 +158,11 @@ function Test-BackupIntegrity {
             if ($isIntact) {
                 Write-Host "Status:    INTACT" -ForegroundColor Green
                 Write-Host "All $($verified.Count) files verified successfully!" -ForegroundColor Green
+                Write-Log -Message "Integrity verification: INTACT - All $($verified.Count) files verified" -Level Success
             }
             else {
                 Write-Host "Status:    COMPROMISED" -ForegroundColor Red
+                Write-Log -Message "Integrity verification: COMPROMISED - Verified: $($result.Summary.VerifiedCount), Corrupted: $($result.Summary.CorruptedCount), Missing: $($result.Summary.MissingCount)" -Level Error
                 Write-Host ""
                 Write-Host "Summary:" -ForegroundColor White
                 Write-Host "  Verified:  $($result.Summary.VerifiedCount) files" -ForegroundColor Green
@@ -175,6 +177,7 @@ function Test-BackupIntegrity {
                     Write-Host "  ! $($file.Path)" -ForegroundColor Red
                     Write-Host "    Expected: $($file.ExpectedHash)" -ForegroundColor Gray
                     Write-Host "    Actual:   $($file.ActualHash)" -ForegroundColor Gray
+                    Write-Log -Message "Corrupted file detected: $($file.Path)" -Level Error
                 }
             }
             
