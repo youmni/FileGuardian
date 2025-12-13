@@ -70,7 +70,7 @@ function Invoke-IncrementalBackup {
         [string[]]$ExcludePatterns,
         
         [Parameter()]
-        [ValidateSet("JSON", "HTML")]
+        [ValidateSet("JSON", "HTML", "CSV")]
         [string]$ReportFormat = "JSON"
     )
     

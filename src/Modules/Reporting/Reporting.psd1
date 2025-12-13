@@ -24,6 +24,7 @@
     NestedModules = @(
         'Write-JsonReport.psm1',
         'Write-HtmlReport.psm1',
+        'Write-CsvReport.psm1',
         'Protect-Report.psm1',
         'Confirm-ReportSignature.psm1'
     )
@@ -32,6 +33,7 @@
     FunctionsToExport = @(
         'Write-JsonReport',
         'Write-HtmlReport',
+        'Write-CsvReport',
         'Protect-Report',
         'Confirm-ReportSignature'
     )
