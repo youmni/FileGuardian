@@ -116,7 +116,7 @@ function Invoke-FileGuardian {
         [string[]]$ExcludePatterns,
         
         [Parameter()]
-        [ValidateSet('JSON', 'HTML')]
+        [ValidateSet('JSON', 'HTML', 'CSV')]
         [string]$ReportFormat,
         
         [Parameter()]
