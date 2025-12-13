@@ -314,5 +314,3 @@ function Invoke-FullBackup {
         }
     }
 }
-
-Export-ModuleMember -Function Invoke-FullBackup
