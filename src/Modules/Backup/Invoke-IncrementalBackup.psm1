@@ -32,20 +32,16 @@ function Invoke-IncrementalBackup {
     .PARAMETER ReportFormat
         Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
     
-    .PARAMETER ForceFullBackup
-        If no previous state exists, automatically perform a full backup instead of failing.
-    
     .EXAMPLE
         Invoke-IncrementalBackup -SourcePath "C:\Data"
-        Backs up only changed files since last backup
+        Backs up only changed files since last backup, or automatically performs full backup if none exists
     
     .EXAMPLE
         Invoke-IncrementalBackup -SourcePath "C:\Data" -DestinationPath "D:\Backups" -Compress
         Incremental backup with custom destination and compression
     
     .NOTES
-        - Requires previous backup state (latest.json) in the destination states folder
-        - If no previous state exists and ForceFullBackup is $true, performs full backup
+        - If no previous backup state exists, automatically performs a full backup first
         - Reports are always generated and digitally signed
         - Backup chain: Full -> Incremental -> Incremental -> Incremental -> Full (recommended)
     #>
@@ -75,10 +71,7 @@ function Invoke-IncrementalBackup {
         
         [Parameter()]
         [ValidateSet("JSON", "HTML")]
-        [string]$ReportFormat = "JSON",
-        
-        [Parameter()]
-        [switch]$ForceFullBackup
+        [string]$ReportFormat = "JSON"
     )
     
     begin {
@@ -139,33 +132,26 @@ function Invoke-IncrementalBackup {
         $latestStateFile = Join-Path $stateDir "latest.json"
         
         if (-not (Test-Path $latestStateFile)) {
-            $message = "No previous backup state found at: $latestStateFile"
+            Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
             
-            if ($ForceFullBackup) {
-                Write-Log -Message "$message. Performing full backup instead." -Level Warning
-                
-                # Delegate to full backup
-                $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
-                Import-Module $fullBackupModule -Force
-                
-                $fullBackupParams = @{
-                    SourcePath = $SourcePath
-                    DestinationPath = $DestinationPath
-                    BackupName = $BackupName.Replace("IncrementalBackup", "FullBackup")
-                    Compress = $Compress
-                    ExcludePatterns = $ExcludePatterns
-                    ReportFormat = $ReportFormat
-                }
-                
-                if ($ConfigPath) {
-                    $fullBackupParams['ConfigPath'] = $ConfigPath
-                }
-                
-                return Invoke-FullBackup @fullBackupParams
+            # Delegate to full backup
+            $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
+            Import-Module $fullBackupModule -Force
+            
+            $fullBackupParams = @{
+                SourcePath = $SourcePath
+                DestinationPath = $DestinationPath
+                BackupName = $BackupName.Replace("IncrementalBackup", "FullBackup")
+                Compress = $Compress
+                ExcludePatterns = $ExcludePatterns
+                ReportFormat = $ReportFormat
             }
-            else {
-                throw "$message. Run a full backup first or use -ForceFullBackup switch."
+            
+            if ($ConfigPath) {
+                $fullBackupParams['ConfigPath'] = $ConfigPath
             }
+            
+            return Invoke-FullBackup @fullBackupParams
         }
         
         # Import Compress-Backup module if compression is needed
