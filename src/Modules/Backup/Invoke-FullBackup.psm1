@@ -252,47 +252,56 @@ function Invoke-FullBackup {
                 $backupInfo['IntegrityStateSaved'] = $false
             }
             
-            # Generate and sign report
+            # Generate report (ALWAYS - this is mandatory)
             try {
-                Write-Verbose "Generating backup report ($ReportFormat)..."
-                $signModule = Join-Path $PSScriptRoot "..\Reporting\Sign-Report.psm1"
+                Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info
+                $signModule = Join-Path $PSScriptRoot "..\Reporting\Protect-Report.psm1"
                 
                 # Select report module based on format
                 $reportModule = switch ($ReportFormat) {
                     "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
                     "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.psm1" }
+                    "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.psm1" }
                     default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
                 }
                 
-                if ((Test-Path $reportModule) -and (Test-Path $signModule)) {
+                if (Test-Path $reportModule) {
                     Import-Module $reportModule -Force
-                    Import-Module $signModule -Force
                     
-                    # Generate report
+                    # Generate report (ALWAYS)
                     $reportInfo = if ($ReportFormat -eq "JSON") {
                         Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
                     }
                     elseif ($ReportFormat -eq "HTML") {
                         Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
                     }
+                    elseif ($ReportFormat -eq "CSV") {
+                        Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                    }
                     
-                    # Sign report
                     if ($reportInfo -and $reportInfo.ReportPath) {
-                        $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
                         $backupInfo['ReportPath'] = $reportInfo.ReportPath
                         $backupInfo['ReportFormat'] = $ReportFormat
-                        $backupInfo['ReportSigned'] = $true
-                        $backupInfo['ReportSignature'] = $signInfo.Hash
+                        Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
+                        
+                        # Optionally sign report if signing module exists
+                        if (Test-Path $signModule) {
+                            Import-Module $signModule -Force
+                            $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
+                            $backupInfo['ReportSigned'] = $true
+                            $backupInfo['ReportSignature'] = $signInfo.Hash
+                            Write-Log -Message "Report signed successfully" -Level Info
+                        }
                     }
                 }
                 else {
-                    Write-Verbose "Reporting modules not found. Report not generated."
+                    Write-Log -Message "Report module not found: $reportModule" -Level Error
                     $backupInfo['ReportPath'] = $null
                     $backupInfo['ReportSigned'] = $false
                 }
             }
             catch {
-                Write-Warning "Failed to generate or sign report: $_"
+                Write-Log -Message "Failed to generate report: $_" -Level Error
                 $backupInfo['ReportPath'] = $null
                 $backupInfo['ReportSigned'] = $false
             }
