@@ -66,6 +66,10 @@ function Invoke-FileGuardian {
         Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -DestinationPath "D:\Backups"
         Full backup (reports are always signed)
     
+    .EXAMPLE
+        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -ReportFormat HTML
+        Full backup with HTML report format
+    
     .NOTES
         This is the recommended way to use FileGuardian. All underlying modules
         are called automatically based on the specified action and parameters.
@@ -112,6 +116,10 @@ function Invoke-FileGuardian {
         [string[]]$ExcludePatterns,
         
         [Parameter()]
+        [ValidateSet('JSON', 'HTML')]
+        [string]$ReportFormat,
+        
+        [Parameter()]
         [switch]$Quiet
     )
     
@@ -151,6 +159,7 @@ function Invoke-FileGuardian {
                             if ($ConfigPath) { $backupParams.ConfigPath = $ConfigPath }
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
+                            if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
                             
                             # Execute backup
                             $result = Invoke-FullBackup @backupParams
@@ -169,6 +178,7 @@ function Invoke-FileGuardian {
                             if ($ConfigPath) { $backupParams.ConfigPath = $ConfigPath }
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
+                            if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
                             
                             $result = Invoke-IncrementalBackup @backupParams
                         }
@@ -186,6 +196,7 @@ function Invoke-FileGuardian {
                             if ($ConfigPath) { $backupParams.ConfigPath = $ConfigPath }
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
+                            if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
                             
                             $result = Invoke-DifferentialBackup @backupParams
                         }
