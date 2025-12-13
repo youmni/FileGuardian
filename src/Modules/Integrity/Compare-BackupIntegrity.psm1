@@ -31,7 +31,7 @@ function Compare-BackupIntegrity {
     )
     
     Begin {
-        Write-Verbose "Comparing integrity states..."
+        Write-Log -Message "Comparing integrity states in: $StateDirectory" -Level Info
         
         $latestFile = Join-Path $StateDirectory "latest.json"
         $prevFile = Join-Path $StateDirectory "prev.json"
@@ -51,10 +51,7 @@ function Compare-BackupIntegrity {
             }
             
             # Load states
-            Write-Verbose "Loading latest state..."
             $latest = Get-Content -Path $latestFile -Raw | ConvertFrom-Json
-            
-            Write-Verbose "Loading previous state..."
             $prev = Get-Content -Path $prevFile -Raw | ConvertFrom-Json
             
             # Create hashtables for comparison
@@ -118,6 +115,8 @@ function Compare-BackupIntegrity {
                     TotalFiles = $latestHash.Count
                 }
             }
+            
+            Write-Log -Message "Integrity comparison complete: Added: $($added.Count), Modified: $($modified.Count), Deleted: $($deleted.Count), Unchanged: $($unchanged.Count)" -Level Info
             
             # Display results
             Write-Host "`n=== Integrity Comparison ===" -ForegroundColor Cyan

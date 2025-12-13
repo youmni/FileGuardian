@@ -25,7 +25,7 @@ function Read-Config {
             throw "Configuration file not found at: $ConfigPath"
         }
         
-        Write-Verbose "Reading configuration from: $ConfigPath"
+        Write-Log -Message "Reading configuration from: $ConfigPath" -Level Info
         $configContent = Get-Content -Path $ConfigPath -Raw -ErrorAction Stop
         
         if ([string]::IsNullOrWhiteSpace($configContent)) {
@@ -34,7 +34,7 @@ function Read-Config {
         
         $config = $configContent | ConvertFrom-Json -ErrorAction Stop
         
-        Write-Verbose "Configuration loaded successfully"
+        Write-Log -Message "Configuration loaded successfully" -Level Info
         return $config
     }
     catch {

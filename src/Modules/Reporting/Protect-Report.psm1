@@ -1,4 +1,4 @@
-function Sign-Report {
+function Protect-Report {
     <#
     .SYNOPSIS
         Signs a report file using integrity hash.
@@ -14,7 +14,7 @@ function Sign-Report {
         Hash algorithm to use (SHA256, SHA1, MD5). Default is SHA256.
     
     .EXAMPLE
-        Sign-Report -ReportPath ".\reports\backup_report.json"
+        Protect-Report -ReportPath ".\reports\backup_report.json"
         Signs the report with SHA256
     #>
     [CmdletBinding()]
@@ -30,7 +30,7 @@ function Sign-Report {
     
     Process {
         try {
-            Write-Verbose "Signing report: $ReportPath"
+            Write-Log -Message "Signing report: $ReportPath" -Level Info
             
             # Calculate hash of report
             $hash = Get-FileHash -Path $ReportPath -Algorithm $Algorithm
@@ -50,10 +50,7 @@ function Sign-Report {
             # Save signature
             $signature | ConvertTo-Json | Out-File -FilePath $signaturePath -Encoding UTF8 -Force
             
-            Write-Host "Report signed successfully" -ForegroundColor Green
-            Write-Host "  Signature: $signaturePath" -ForegroundColor Gray
-            Write-Host "  Algorithm: $Algorithm" -ForegroundColor Gray
-            Write-Host "  Hash: $($hash.Hash.Substring(0, 16))..." -ForegroundColor Gray
+            Write-Log -Message "Report signed successfully with $Algorithm (Hash: $($hash.Hash.Substring(0, 16))...)" -Level Success
             
             return [PSCustomObject]@{
                 ReportPath = $ReportPath

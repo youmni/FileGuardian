@@ -27,7 +27,7 @@ function Write-JsonReport {
     )
     
     Begin {
-        Write-Verbose "Generating JSON backup report..."
+        Write-Log -Message "Generating JSON backup report..." -Level Info
         
         # If no report path specified, create one
         if (-not $ReportPath) {

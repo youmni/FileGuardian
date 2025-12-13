@@ -1,4 +1,4 @@
-function Test-ReportSignature {
+function Confirm-ReportSignature {
     <#
     .SYNOPSIS
         Verifies a report's signature.
@@ -10,7 +10,7 @@ function Test-ReportSignature {
         Path to the report file to verify.
     
     .EXAMPLE
-        Test-ReportSignature -ReportPath ".\reports\backup_report.json"
+        Confirm-ReportSignature -ReportPath ".\reports\backup_report.json"
         Verifies the report signature
     #>
     [CmdletBinding()]
@@ -22,10 +22,12 @@ function Test-ReportSignature {
     
     Process {
         try {
+            Write-Log -Message "Verifying report signature: $(Split-Path $ReportPath -Leaf)" -Level Info
             $signaturePath = "$ReportPath.sig"
             
             if (-not (Test-Path $signaturePath)) {
                 Write-Warning "No signature file found for: $ReportPath"
+                Write-Log -Message "No signature file found for: $(Split-Path $ReportPath -Leaf)" -Level Warning
                 return $false
             }
             
@@ -43,11 +45,13 @@ function Test-ReportSignature {
                 Write-Host "  Report: $(Split-Path $ReportPath -Leaf)" -ForegroundColor Gray
                 Write-Host "  Signed: $($signature.SignedAt)" -ForegroundColor Gray
                 Write-Host "  By: $($signature.SignedBy)" -ForegroundColor Gray
+                Write-Log -Message "Report signature verified: VALID - $(Split-Path $ReportPath -Leaf)" -Level Success
             }
             else {
                 Write-Host "`nReport signature is INVALID - Report has been modified!" -ForegroundColor Red
                 Write-Host "  Expected: $($signature.Hash)" -ForegroundColor Gray
                 Write-Host "  Actual:   $($currentHash.Hash)" -ForegroundColor Gray
+                Write-Log -Message "Report signature verification: INVALID - $(Split-Path $ReportPath -Leaf) has been tampered!" -Level Error
             }
             
             return [PSCustomObject]@{

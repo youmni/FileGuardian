@@ -39,7 +39,7 @@ function Get-FileIntegrityHash {
     )
     
     Begin {
-        Write-Verbose "Starting hash calculation with algorithm: $Algorithm"
+        Write-Log -Message "Starting hash calculation for: $Path (Algorithm: $Algorithm)" -Level Info
     }
     
     Process {
@@ -96,6 +96,6 @@ function Get-FileIntegrityHash {
     }
     
     End {
-        Write-Verbose "Hash calculation completed"
+        # Completion already logged in Process block
     }
 }
