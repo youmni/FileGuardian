@@ -307,6 +307,7 @@ function Invoke-IncrementalBackup {
                 $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
                 $metadata = @{
                     BackupType = "Incremental"
+                    SourcePath = (Resolve-Path $SourcePath).Path
                     Timestamp = $timestamp
                     BaseBackup = $previousState.Timestamp
                     FilesBackedUp = $copiedFiles
@@ -389,6 +390,130 @@ function Invoke-IncrementalBackup {
             catch {
                 Write-Warning "Failed to save integrity state: $_"
                 $backupInfo['IntegrityStateSaved'] = $false
+            }
+            
+            # Verify previous backups integrity
+            try {
+                Write-Log -Message "Verifying previous backups integrity..." -Level Info
+                $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.psm1"
+                
+                if (Test-Path $testIntegrityModule) {
+                    Import-Module $testIntegrityModule -Force
+                    
+                    # Find all previous backups in the destination path
+                    $backupDir = if ($Compress) { Split-Path $backupInfo.DestinationPath -Parent } else { Split-Path $backupInfo.DestinationPath -Parent }
+                    $previousBackups = @()
+                    $corruptedBackups = @()
+                    $verifiedBackups = @()
+                    
+                    # Normalize current source path for comparison
+                    $normalizedCurrentSource = (Resolve-Path $SourcePath).Path
+                    
+                    if (Test-Path $backupDir) {
+                        # Get all backup directories and ZIP files (exclude current backup and states folder)
+                        $currentBackupName = if ($Compress) { Split-Path $backupInfo.DestinationPath -Leaf } else { Split-Path $backupInfo.DestinationPath -Leaf }
+                        $allBackupDirs = Get-ChildItem -Path $backupDir -Directory | Where-Object { $_.Name -ne "states" -and $_.Name -ne $currentBackupName }
+                        $allBackupZips = Get-ChildItem -Path $backupDir -File -Filter "*.zip" | Where-Object { $_.Name -ne $currentBackupName }
+                        $allBackups = @($allBackupDirs) + @($allBackupZips)
+                        
+                        foreach ($backup in $allBackups) {
+                            try {
+                                # Read backup metadata to check source path
+                                $metadataPath = if ($backup.Extension -eq ".zip") {
+                                    # For ZIP files, extract metadata from temp location
+                                    $tempExtractDir = Join-Path $env:TEMP "FileGuardian_Verify_$([guid]::NewGuid().ToString())"
+                                    try {
+                                        Expand-Archive -Path $backup.FullName -DestinationPath $tempExtractDir -Force
+                                        Join-Path $tempExtractDir ".backup-metadata.json"
+                                    }
+                                    catch {
+                                        $null
+                                    }
+                                } else {
+                                    Join-Path $backup.FullName ".backup-metadata.json"
+                                }
+                                
+                                # Check if backup is from the same source
+                                $isSameSource = $false
+                                if ($metadataPath -and (Test-Path $metadataPath)) {
+                                    try {
+                                        $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json
+                                        $backupSourcePath = if (Test-Path $metadata.SourcePath) {
+                                            (Resolve-Path $metadata.SourcePath).Path
+                                        } else {
+                                            $metadata.SourcePath
+                                        }
+                                        $isSameSource = ($backupSourcePath -eq $normalizedCurrentSource)
+                                    }
+                                    catch {
+                                        Write-Verbose "Could not read metadata for backup: $($backup.Name) - $_"
+                                    }
+                                    
+                                    # Clean up temp directory if it was created
+                                    if ($backup.Extension -eq ".zip" -and $tempExtractDir -and (Test-Path $tempExtractDir)) {
+                                        Remove-Item -Path $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue
+                                    }
+                                }
+                                
+                                # Only verify if same source
+                                if (-not $isSameSource) {
+                                    Write-Verbose "Skipping backup from different source: $($backup.Name)"
+                                    continue
+                                }
+                                
+                                $verifyResult = Test-BackupIntegrity -BackupPath $backup.FullName
+                                
+                                if ($verifyResult -and -not $verifyResult.IsIntact) {
+                                    # Get lists of corrupted and missing files
+                                    $corruptedFilesList = if ($verifyResult.Corrupted) {
+                                        @($verifyResult.Corrupted | ForEach-Object { $_.Path } | Where-Object { $_ })
+                                    } else { @() }
+                                    
+                                    $missingFilesList = if ($verifyResult.Missing) {
+                                        @($verifyResult.Missing | ForEach-Object { $_.RelativePath } | Where-Object { $_ })
+                                    } else { @() }
+                                    
+                                    $corruptedBackups += [PSCustomObject]@{
+                                        BackupName = $backup.Name
+                                        BackupPath = $backup.FullName
+                                        CorruptedFiles = $verifyResult.Summary.CorruptedCount
+                                        MissingFiles = $verifyResult.Summary.MissingCount
+                                        TotalIssues = $verifyResult.Summary.CorruptedCount + $verifyResult.Summary.MissingCount
+                                        CorruptedFilesList = $corruptedFilesList
+                                        MissingFilesList = $missingFilesList
+                                    }
+                                    Write-Log -Message "Previous backup is CORRUPTED: $($backup.Name) ($($verifyResult.Summary.CorruptedCount) corrupted, $($verifyResult.Summary.MissingCount) missing)" -Level Warning
+                                }
+                                else {
+                                    $verifiedBackups += $backup.Name
+                                }
+                            }
+                            catch {
+                                Write-Verbose "Could not verify backup: $($backup.Name) - $_"
+                            }
+                        }
+                    }
+                    
+                    $backupInfo['PreviousBackupsVerified'] = $verifiedBackups.Count + $corruptedBackups.Count
+                    $backupInfo['CorruptedBackups'] = $corruptedBackups
+                    $backupInfo['VerifiedBackupsOK'] = $verifiedBackups.Count
+                    
+                    if ($corruptedBackups.Count -gt 0) {
+                        Write-Log -Message "WARNING: Found $($corruptedBackups.Count) corrupted previous backup(s)!" -Level Warning
+                    }
+                    else {
+                        Write-Log -Message "All previous backups verified successfully ($($verifiedBackups.Count) checked)" -Level Info
+                    }
+                }
+                else {
+                    $backupInfo['PreviousBackupsVerified'] = 0
+                    $backupInfo['CorruptedBackups'] = @()
+                }
+            }
+            catch {
+                Write-Warning "Failed to verify previous backups: $_"
+                $backupInfo['PreviousBackupsVerified'] = 0
+                $backupInfo['CorruptedBackups'] = @()
             }
             
             # Generate report (ALWAYS - this is mandatory)
