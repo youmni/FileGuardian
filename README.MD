@@ -66,10 +66,7 @@ The system generates comprehensive JSON reports containing:
 
 Comprehensive documentation is available in the `docs/` directory:
 
-- **Requirements.md** - Detailed system and functional requirements
-- **DesignDocument.md** - Architecture and design decisions
 - **UserGuide.md** - End-user instructions and examples
-- **DeveloperGuide.md** - Contributing and development guidelines
 
 ## Authors
 - [@Youmni Malha](https://github.com/Youmni)
