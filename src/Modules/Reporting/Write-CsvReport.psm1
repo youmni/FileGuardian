@@ -41,6 +41,16 @@ function Write-CsvReport {
             $backupName = if ($BackupInfo.BackupName) { $BackupInfo.BackupName } else { "backup" }
             $ReportPath = Join-Path $reportDir "${backupName}_${timestamp}_report.csv"
         }
+        # If ReportPath is a directory or has no extension (assume directory), generate filename
+        elseif ((Test-Path $ReportPath -PathType Container) -or (-not [System.IO.Path]::HasExtension($ReportPath))) {
+            # Create directory if it doesn't exist
+            if (-not (Test-Path $ReportPath)) {
+                New-Item -Path $ReportPath -ItemType Directory -Force | Out-Null
+            }
+            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+            $backupName = if ($BackupInfo.BackupName) { $BackupInfo.BackupName } else { "backup" }
+            $ReportPath = Join-Path $ReportPath "${backupName}_${timestamp}_report.csv"
+        }
     }
     
     Process {

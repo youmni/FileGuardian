@@ -66,7 +66,10 @@ function Invoke-FullBackup {
         
         [Parameter()]
         [ValidateSet("JSON", "HTML", "CSV")]
-        [string]$ReportFormat = "JSON"
+        [string]$ReportFormat = "JSON",
+        
+        [Parameter()]
+        [string]$ReportPath
     )
     
     begin {
@@ -255,7 +258,13 @@ function Invoke-FullBackup {
                 if (Test-Path $integrityModule) {
                     Import-Module $integrityModule -Force
                     $stateDir = Join-Path $DestinationPath "states"
-                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir
+                    # Determine backup name for state file
+                    $stateBackupName = if ($Compress) {
+                        (Get-Item $backupInfo.DestinationPath).BaseName
+                    } else {
+                        Split-Path $backupInfo.DestinationPath -Leaf
+                    }
+                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
                     $backupInfo['IntegrityStateSaved'] = $true
                 }
                 else {
@@ -294,49 +303,7 @@ function Invoke-FullBackup {
                         
                         foreach ($backup in $allBackups) {
                             try {
-                                # Read backup metadata to check source path
-                                $metadataPath = if ($backup.Extension -eq ".zip") {
-                                    # For ZIP files, extract metadata from temp location
-                                    $tempExtractDir = Join-Path $env:TEMP "FileGuardian_Verify_$([guid]::NewGuid().ToString())"
-                                    try {
-                                        Expand-Archive -Path $backup.FullName -DestinationPath $tempExtractDir -Force
-                                        Join-Path $tempExtractDir ".backup-metadata.json"
-                                    }
-                                    catch {
-                                        $null
-                                    }
-                                } else {
-                                    Join-Path $backup.FullName ".backup-metadata.json"
-                                }
-                                
-                                # Check if backup is from the same source
-                                $isSameSource = $false
-                                if ($metadataPath -and (Test-Path $metadataPath)) {
-                                    try {
-                                        $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json
-                                        $backupSourcePath = if (Test-Path $metadata.SourcePath) {
-                                            (Resolve-Path $metadata.SourcePath).Path
-                                        } else {
-                                            $metadata.SourcePath
-                                        }
-                                        $isSameSource = ($backupSourcePath -eq $normalizedCurrentSource)
-                                    }
-                                    catch {
-                                        Write-Verbose "Could not read metadata for backup: $($backup.Name) - $_"
-                                    }
-                                    
-                                    # Clean up temp directory if it was created
-                                    if ($backup.Extension -eq ".zip" -and $tempExtractDir -and (Test-Path $tempExtractDir)) {
-                                        Remove-Item -Path $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue
-                                    }
-                                }
-                                
-                                # Only verify if same source
-                                if (-not $isSameSource) {
-                                    Write-Verbose "Skipping backup from different source: $($backup.Name)"
-                                    continue
-                                }
-                                
+                                # Verify all backups in the destination folder, regardless of source
                                 $verifyResult = Test-BackupIntegrity -BackupPath $backup.FullName
                                 
                                 if ($verifyResult -and -not $verifyResult.IsIntact) {
@@ -410,13 +377,25 @@ function Invoke-FullBackup {
                     
                     # Generate report (ALWAYS)
                     $reportInfo = if ($ReportFormat -eq "JSON") {
-                        Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     elseif ($ReportFormat -eq "HTML") {
-                        Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     elseif ($ReportFormat -eq "CSV") {
-                        Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     
                     if ($reportInfo -and $reportInfo.ReportPath) {

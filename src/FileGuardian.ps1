@@ -97,10 +97,14 @@ function Invoke-FileGuardian {
         [ValidateScript({ Test-Path $_ })]
         [string]$BackupPath,
         
-        # Report signature verification parameters
+        # Report path for verification (must exist)
         [Parameter(ParameterSetName='Report', Mandatory=$true)]
         [ValidateScript({ Test-Path $_ })]
         [string]$ReportPath,
+        
+        # Report output path for backups (does not need to exist)
+        [Parameter(ParameterSetName='Backup')]
+        [string]$ReportOutputPath,
         
         # Common parameters
         [Parameter()]
@@ -160,6 +164,7 @@ function Invoke-FileGuardian {
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
                             if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
+                            if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
                             
                             # Execute backup
                             $result = Invoke-FullBackup @backupParams
@@ -179,6 +184,7 @@ function Invoke-FileGuardian {
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
                             if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
+                            if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
                             
                             $result = Invoke-IncrementalBackup @backupParams
                         }
@@ -197,6 +203,7 @@ function Invoke-FileGuardian {
                             if ($Compress) { $backupParams.Compress = $true }
                             if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
                             if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
+                            if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
                             
                             $result = Invoke-DifferentialBackup @backupParams
                         }

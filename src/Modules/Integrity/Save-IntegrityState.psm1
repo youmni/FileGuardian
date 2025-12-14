@@ -6,6 +6,7 @@ function Save-IntegrityState {
     .DESCRIPTION
         Captures file hashes and saves them to states/latest.json.
         Rotates previous latest to prev.json.
+        Also saves a backup-specific state file for future integrity verification.
     
     .PARAMETER SourcePath
         Path to backup source directory to track.
@@ -13,9 +14,16 @@ function Save-IntegrityState {
     .PARAMETER StateDirectory
         Directory where state files are stored. Default is .\states
     
+    .PARAMETER BackupName
+        Optional backup name to create a backup-specific state file
+    
     .EXAMPLE
         Save-IntegrityState -SourcePath "C:\Data"
         Saves integrity state for C:\Data
+    
+    .EXAMPLE
+        Save-IntegrityState -SourcePath "C:\Data" -BackupName "MyBackup_20251214_120000"
+        Saves both general and backup-specific integrity state
     #>
     [CmdletBinding()]
     param(
@@ -24,7 +32,10 @@ function Save-IntegrityState {
         [string]$SourcePath,
         
         [Parameter()]
-        [string]$StateDirectory = ".\states"
+        [string]$StateDirectory = ".\states",
+        
+        [Parameter()]
+        [string]$BackupName
     )
     
     Begin {
@@ -66,6 +77,13 @@ function Save-IntegrityState {
             
             # Save new latest
             $state | ConvertTo-Json -Depth 10 | Set-Content -Path $latestFile -Encoding UTF8
+            
+            # Save backup-specific state if BackupName is provided
+            if ($BackupName) {
+                $backupStateFile = Join-Path $StateDirectory "$BackupName.json"
+                $state | ConvertTo-Json -Depth 10 | Set-Content -Path $backupStateFile -Encoding UTF8
+                Write-Verbose "Backup-specific state saved: $backupStateFile"
+            }
             
             Write-Log -Message "Integrity state saved: $($state.FileCount) files tracked, $([math]::Round($state.TotalSize / 1MB, 2)) MB total" -Level Success
             

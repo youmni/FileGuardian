@@ -36,20 +36,38 @@ function Test-BackupIntegrity {
             $StateDirectory = Join-Path $backupParent "states"
         }
         
+        # Try to find backup-specific state file first
+        $backupItem = Get-Item $BackupPath
+        $backupBaseName = if ($backupItem.Extension -eq '.zip') {
+            $backupItem.BaseName
+        } else {
+            $backupItem.Name
+        }
+        
+        $backupStateFile = Join-Path $StateDirectory "$backupBaseName.json"
         $latestFile = Join-Path $StateDirectory "latest.json"
+        
+        # Use backup-specific state if available, otherwise fall back to latest
+        $stateFile = if (Test-Path $backupStateFile) {
+            Write-Verbose "Using backup-specific state: $backupStateFile"
+            $backupStateFile
+        } else {
+            Write-Verbose "No backup-specific state found, using latest.json"
+            $latestFile
+        }
     }
     
     Process {
         try {
             # Validate state file exists
-            if (-not (Test-Path $latestFile)) {
-                Write-Warning "No integrity state found at: $latestFile"
+            if (-not (Test-Path $stateFile)) {
+                Write-Warning "No integrity state found at: $stateFile"
                 return
             }
             
             # Load state
-            Write-Verbose "Loading integrity state..."
-            $state = Get-Content -Path $latestFile -Raw | ConvertFrom-Json
+            Write-Verbose "Loading integrity state from: $stateFile"
+            $state = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
             
             # Import Get-FileIntegrityHash
             Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.psm1") -Force

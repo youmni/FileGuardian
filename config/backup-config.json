@@ -9,5 +9,41 @@
     "CompressBackups": false,
     "ExcludePatterns": ["*.tmp", "*.log", "*.bak"],
     "RetentionDays": 30
-  }
+  },
+  "ScheduledBackups": [
+    {
+      "Name": "aklaa",
+      "Enabled": true,
+      "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
+      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
+      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",
+      "BackupType": "Full",
+      "Schedule": {
+        "Frequency": "Daily",
+        "Time": "20:41",
+        "DaysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+      },
+      "CompressBackups": true,
+      "ExcludePatterns": ["*.tmp", "*.log", "*.cache", "node_modules/**", ".git/**"],
+      "ReportFormat": "HTML",
+      "RetentionDays": 30
+    },
+    {
+      "Name": "colruyt-group-jaarverslag",
+      "Enabled": true,
+      "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\colruyt-group-jaarverslag",
+      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-colruyt\\backups",
+      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-colruyt\\reports",
+      "BackupType": "Incremental",
+      "Schedule": {
+        "Frequency": "Weekly",
+        "Time": "20:49",
+        "DaysOfWeek": ["Sunday"]
+      },
+      "CompressBackups": false,
+      "ExcludePatterns": ["*.tmp", "*.log", "*.cache"],
+      "ReportFormat": "HTML",
+      "RetentionDays": 90
+    }
+  ]
 }
