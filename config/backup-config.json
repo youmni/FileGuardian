@@ -15,10 +15,12 @@
       "Name": "aklaa",
       "Enabled": true,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
+      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
+      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",
       "BackupType": "Full",
       "Schedule": {
         "Frequency": "Daily",
-        "Time": "18:02",
+        "Time": "20:41",
         "DaysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
       },
       "CompressBackups": true,
@@ -30,13 +32,15 @@
       "Name": "colruyt-group-jaarverslag",
       "Enabled": true,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\colruyt-group-jaarverslag",
-      "BackupType": "Full",
+      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-colruyt\\backups",
+      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-colruyt\\reports",
+      "BackupType": "Incremental",
       "Schedule": {
         "Frequency": "Weekly",
-        "Time": "18:02",
+        "Time": "20:49",
         "DaysOfWeek": ["Sunday"]
       },
-      "CompressBackups": true,
+      "CompressBackups": false,
       "ExcludePatterns": ["*.tmp", "*.log", "*.cache"],
       "ReportFormat": "HTML",
       "RetentionDays": 90

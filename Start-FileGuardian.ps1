@@ -45,6 +45,9 @@ param(
     [string]$ReportPath,
     
     [Parameter()]
+    [string]$ReportOutputPath,
+    
+    [Parameter()]
     [string]$BackupName,
     
     [Parameter()]
@@ -89,6 +92,7 @@ try {
     if ($PSBoundParameters.ContainsKey('BackupType')) { $params.BackupType = $BackupType }
     if ($PSBoundParameters.ContainsKey('BackupPath')) { $params.BackupPath = $BackupPath }
     if ($PSBoundParameters.ContainsKey('ReportPath')) { $params.ReportPath = $ReportPath }
+    if ($PSBoundParameters.ContainsKey('ReportOutputPath')) { $params.ReportOutputPath = $ReportOutputPath }
     if ($PSBoundParameters.ContainsKey('BackupName')) { $params.BackupName = $BackupName }
     if ($PSBoundParameters.ContainsKey('ReportFormat')) { $params.ReportFormat = $ReportFormat }
     if ($PSBoundParameters.ContainsKey('ConfigPath')) { $params.ConfigPath = $ConfigPath }

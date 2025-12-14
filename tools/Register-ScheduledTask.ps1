@@ -97,6 +97,16 @@ foreach ($backup in $backupsToProcess) {
         "-ReportFormat $($backup.ReportFormat)"
     )
     
+    # Add destination path (use BackupPath from config if available, otherwise use default)
+    if ($backup.BackupPath) {
+        $arguments += "-DestinationPath `"$($backup.BackupPath)`""
+    }
+    
+    # Add report output path if specified
+    if ($backup.ReportOutputPath) {
+        $arguments += "-ReportOutputPath `"$($backup.ReportOutputPath)`""
+    }
+    
     if ($backup.CompressBackups) {
         $arguments += "-Compress"
     }
@@ -143,16 +153,19 @@ foreach ($backup in $backupsToProcess) {
         }
     }
 
-    # Set the principal (run as SYSTEM or current user)
-    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Highest
+    # Set the principal to run in the background without password prompt
+    # Using SYSTEM account for background execution
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-    # Task settings
+    # Task settings - configured to run in background even when laptop is asleep/closed
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
         -StartWhenAvailable `
+        -WakeToRun `
         -RunOnlyIfNetworkAvailable:$false `
-        -ExecutionTimeLimit (New-TimeSpan -Hours 4)
+        -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
+        -MultipleInstances IgnoreNew
 
     # Register the task
     try {

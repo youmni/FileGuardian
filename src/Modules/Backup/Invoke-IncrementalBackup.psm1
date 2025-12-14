@@ -71,7 +71,10 @@ function Invoke-IncrementalBackup {
         
         [Parameter()]
         [ValidateSet("JSON", "HTML", "CSV")]
-        [string]$ReportFormat = "JSON"
+        [string]$ReportFormat = "JSON",
+        
+        [Parameter()]
+        [string]$ReportPath
     )
     
     begin {
@@ -170,6 +173,10 @@ function Invoke-IncrementalBackup {
                 
                 if ($ConfigPath) {
                     $fullBackupParams['ConfigPath'] = $ConfigPath
+                }
+                
+                if ($ReportPath) {
+                    $fullBackupParams['ReportPath'] = $ReportPath
                 }
                 
                 return Invoke-FullBackup @fullBackupParams
@@ -384,7 +391,13 @@ function Invoke-IncrementalBackup {
                 $saveStateModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.psm1"
                 if (Test-Path $saveStateModule) {
                     Import-Module $saveStateModule -Force
-                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir
+                    # Determine backup name for state file
+                    $stateBackupName = if ($Compress) {
+                        (Get-Item $backupInfo.DestinationPath).BaseName
+                    } else {
+                        Split-Path $backupInfo.DestinationPath -Leaf
+                    }
+                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
                     $backupInfo['IntegrityStateSaved'] = $true
                 }
                 else {
@@ -497,13 +510,25 @@ function Invoke-IncrementalBackup {
                     
                     # Generate report (ALWAYS)
                     $reportInfo = if ($ReportFormat -eq "JSON") {
-                        Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     elseif ($ReportFormat -eq "HTML") {
-                        Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     elseif ($ReportFormat -eq "CSV") {
-                        Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        if ($ReportPath) {
+                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
+                        } else {
+                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
+                        }
                     }
                     
                     if ($reportInfo -and $reportInfo.ReportPath) {
