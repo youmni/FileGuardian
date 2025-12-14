@@ -131,27 +131,11 @@ function Invoke-IncrementalBackup {
         $stateDir = Join-Path $DestinationPath "states"
         $latestStateFile = Join-Path $stateDir "latest.json"
         
-        if (-not (Test-Path $latestStateFile)) {
+        # Set flag for full backup fallback
+        $script:performFullBackupFallback = -not (Test-Path $latestStateFile)
+        
+        if ($script:performFullBackupFallback) {
             Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
-            
-            # Delegate to full backup
-            $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
-            Import-Module $fullBackupModule -Force
-            
-            $fullBackupParams = @{
-                SourcePath = $SourcePath
-                DestinationPath = $DestinationPath
-                BackupName = $BackupName.Replace("IncrementalBackup", "FullBackup")
-                Compress = $Compress
-                ExcludePatterns = $ExcludePatterns
-                ReportFormat = $ReportFormat
-            }
-            
-            if ($ConfigPath) {
-                $fullBackupParams['ConfigPath'] = $ConfigPath
-            }
-            
-            return Invoke-FullBackup @fullBackupParams
         }
         
         # Import Compress-Backup module if compression is needed
@@ -170,6 +154,27 @@ function Invoke-IncrementalBackup {
     
     process {
         try {
+            # If no previous state, delegate to full backup
+            if ($script:performFullBackupFallback) {
+                $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
+                Import-Module $fullBackupModule -Force
+                
+                $fullBackupParams = @{
+                    SourcePath = $SourcePath
+                    DestinationPath = $DestinationPath
+                    BackupName = $BackupName.Replace("IncrementalBackup", "FullBackup")
+                    Compress = $Compress
+                    ExcludePatterns = $ExcludePatterns
+                    ReportFormat = $ReportFormat
+                }
+                
+                if ($ConfigPath) {
+                    $fullBackupParams['ConfigPath'] = $ConfigPath
+                }
+                
+                return Invoke-FullBackup @fullBackupParams
+            }
+            
             # Create destination directory if it doesn't exist
             if (-not (Test-Path $DestinationPath)) {
                 Write-Verbose "Creating destination directory: $DestinationPath"
@@ -536,5 +541,3 @@ function Invoke-IncrementalBackup {
         }
     }
 }
-
-Export-ModuleMember -Function Invoke-IncrementalBackup
