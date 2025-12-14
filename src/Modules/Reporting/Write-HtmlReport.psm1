@@ -76,6 +76,42 @@ function Write-HtmlReport {
                 "<span class='status-error'>Not Saved</span>" 
             }
             
+            # Prepare corruption verification info
+            $hasCorruption = $BackupInfo.CorruptedBackups -and $BackupInfo.CorruptedBackups.Count -gt 0
+            $corruptionHtml = ""
+            if ($hasCorruption) {
+                $corruptionHtml = "<div class='warning-box'><h3>[!] WARNING: Corrupted Previous Backups Detected</h3>"
+                $corruptionHtml += "<p>The following previous backups have integrity issues:</p>"
+                foreach ($corrupted in $BackupInfo.CorruptedBackups) {
+                    $corruptionHtml += "<div class='corrupted-item'>"
+                    $corruptionHtml += "<strong>$($corrupted.BackupName)</strong><br>"
+                    $corruptionHtml += "Corrupted Files: $($corrupted.CorruptedFiles) | Missing Files: $($corrupted.MissingFiles) | Total Issues: $($corrupted.TotalIssues)<br>"
+                    
+                    # Add corrupted files list
+                    if ($corrupted.CorruptedFilesList -and $corrupted.CorruptedFilesList.Count -gt 0) {
+                        $corruptionHtml += "<div style='margin-top:8px'><em>Corrupted:</em> "
+                        $corruptionHtml += ($corrupted.CorruptedFilesList -join ', ')
+                        $corruptionHtml += "</div>"
+                    }
+                    
+                    # Add missing files list
+                    if ($corrupted.MissingFilesList -and $corrupted.MissingFilesList.Count -gt 0) {
+                        $corruptionHtml += "<div style='margin-top:4px'><em>Missing:</em> "
+                        $corruptionHtml += ($corrupted.MissingFilesList -join ', ')
+                        $corruptionHtml += "</div>"
+                    }
+                    
+                    $corruptionHtml += "</div>"
+                }
+                $corruptionHtml += "</div>"
+            }
+            
+            $verificationSummary = if ($BackupInfo.PreviousBackupsVerified) {
+                "$($BackupInfo.VerifiedBackupsOK) OK, $($BackupInfo.CorruptedBackups.Count) Corrupted (Total: $($BackupInfo.PreviousBackupsVerified) verified)"
+            } else {
+                "No previous backups to verify"
+            }
+            
             # Build HTML content with modern styling
             $htmlContent = @"
 <!DOCTYPE html>
@@ -247,6 +283,36 @@ function Write-HtmlReport {
             font-weight: bold;
         }
         
+        .status-warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .warning-box .corrupted-item {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 3px solid #dc3545;
+        }
+        
+        .warning-box .corrupted-item strong {
+            color: #dc3545;
+        }
+        
         footer {
             background: #f8f9fa;
             padding: 20px;
@@ -374,6 +440,18 @@ function Write-HtmlReport {
                         <div class="value">$stateDir</div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Previous Backups Verification Section -->
+            <div class="section">
+                <h2>Previous Backups Verification</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Verification Summary</label>
+                        <div class="value">$verificationSummary</div>
+                    </div>
+                </div>
+                $corruptionHtml
             </div>
             
             <!-- System Info Section -->

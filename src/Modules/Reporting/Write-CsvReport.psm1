@@ -101,6 +101,16 @@ function Write-CsvReport {
                 IntegrityStateSaved = $integrityStateSaved
                 IntegrityStateDirectory = $stateDir
                 
+                # Previous Backups Verification
+                PreviousBackupsVerified = if ($BackupInfo.PreviousBackupsVerified) { $BackupInfo.PreviousBackupsVerified } else { 0 }
+                VerifiedBackupsOK = if ($BackupInfo.VerifiedBackupsOK) { $BackupInfo.VerifiedBackupsOK } else { 0 }
+                CorruptedBackupsCount = if ($BackupInfo.CorruptedBackups) { $BackupInfo.CorruptedBackups.Count } else { 0 }
+                CorruptedBackupsList = if ($BackupInfo.CorruptedBackups -and $BackupInfo.CorruptedBackups.Count -gt 0) { 
+                    ($BackupInfo.CorruptedBackups | ForEach-Object { "$($_.BackupName) (C:$($_.CorruptedFiles) M:$($_.MissingFiles))" }) -join "; " 
+                } else { 
+                    "None" 
+                }
+                
                 # System Info
                 ComputerName = $env:COMPUTERNAME
                 UserName = $env:USERNAME

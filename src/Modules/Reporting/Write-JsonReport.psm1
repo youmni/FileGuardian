@@ -84,6 +84,12 @@ function Write-JsonReport {
                         $null 
                     }
                 }
+                PreviousBackupsVerification = [PSCustomObject]@{
+                    TotalVerified = if ($BackupInfo.PreviousBackupsVerified) { $BackupInfo.PreviousBackupsVerified } else { 0 }
+                    VerifiedOK = if ($BackupInfo.VerifiedBackupsOK) { $BackupInfo.VerifiedBackupsOK } else { 0 }
+                    CorruptedCount = if ($BackupInfo.CorruptedBackups) { $BackupInfo.CorruptedBackups.Count } else { 0 }
+                    CorruptedBackups = if ($BackupInfo.CorruptedBackups) { $BackupInfo.CorruptedBackups } else { @() }
+                }
                 SystemInfo = [PSCustomObject]@{
                     ComputerName = $env:COMPUTERNAME
                     UserName = $env:USERNAME
