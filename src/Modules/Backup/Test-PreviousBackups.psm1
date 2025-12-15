@@ -130,5 +130,3 @@ function Test-PreviousBackups {
         }
     }
 }
-
-Export-ModuleMember -Function Test-PreviousBackups

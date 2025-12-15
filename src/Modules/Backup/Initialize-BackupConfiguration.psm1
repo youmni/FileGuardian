@@ -99,5 +99,3 @@ function Initialize-BackupConfiguration {
         Config = $config
     }
 }
-
-Export-ModuleMember -Function Initialize-BackupConfiguration

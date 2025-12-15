@@ -105,5 +105,3 @@ function New-BackupReport {
     
     return $BackupInfo
 }
-
-Export-ModuleMember -Function New-BackupReport

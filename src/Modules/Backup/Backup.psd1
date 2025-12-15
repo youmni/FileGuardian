@@ -20,15 +20,20 @@
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '5.1'
     
-    # Nested modules to load
+    # Nested modules to load (all modules, including internal helpers)
     NestedModules = @(
         'Compress-Backup.psm1',
+        'Initialize-BackupConfiguration.psm1',
+        'Invoke-DifferentialBackup.psm1',
         'Invoke-FullBackup.psm1',
         'Invoke-IncrementalBackup.psm1',
-        'Invoke-DifferentialBackup.psm1'
+        'Invoke-IntegrityStateSave.psm1',
+        'New-BackupReport.psm1',
+        'Save-BackupMetadata.psm1',
+        'Test-PreviousBackups.psm1'
     )
     
-    # Functions to export from this module
+    # Functions to export from this module (only public-facing functions)
     FunctionsToExport = @(
         'Invoke-FullBackup',
         'Invoke-IncrementalBackup',

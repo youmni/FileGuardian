@@ -65,5 +65,3 @@ function Invoke-IntegrityStateSave {
         return $false
     }
 }
-
-Export-ModuleMember -Function Invoke-IntegrityStateSave

@@ -71,5 +71,3 @@ function Save-BackupMetadata {
         return $false
     }
 }
-
-Export-ModuleMember -Function Save-BackupMetadata

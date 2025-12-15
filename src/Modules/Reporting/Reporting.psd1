@@ -29,12 +29,9 @@
         'Confirm-ReportSignature.psm1'
     )
     
-    # Functions to export from this module
+    # Functions to export from this module (only Confirm-ReportSignature is public-facing)
+    # Report writing and protection are internal helpers used by backup modules
     FunctionsToExport = @(
-        'Write-JsonReport',
-        'Write-HtmlReport',
-        'Write-CsvReport',
-        'Protect-Report',
         'Confirm-ReportSignature'
     )
     
