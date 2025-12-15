@@ -143,6 +143,7 @@ function Invoke-IncrementalBackup {
             
             # If source mismatch, delegate to full backup
             if ($script:performFullBackupFallback) {
+                Write-Log -Message "Delegating to full backup due to missing or mismatched state" -Level Info
                 $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
                 Import-Module $fullBackupModule -Force
                 
@@ -163,6 +164,7 @@ function Invoke-IncrementalBackup {
                     $fullBackupParams['ReportPath'] = $ReportPath
                 }
                 
+                Write-Log -Message "Executing full backup as fallback..." -Level Info
                 return Invoke-FullBackup @fullBackupParams
             }
             

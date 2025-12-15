@@ -54,6 +54,9 @@ function Initialize-BackupConfiguration {
         } else {
             Read-Config -ErrorAction SilentlyContinue
         }
+        if ($config) {
+            Write-Log -Message "Configuration loaded successfully" -Level Info
+        }
     }
     catch {
         Write-Log -Message "Could not load config file: $_. Using parameters only." -Level Warning
@@ -64,9 +67,11 @@ function Initialize-BackupConfiguration {
     if (-not $DestinationPath) {
         if ($config -and $config.BackupSettings.DestinationPath) {
             $DestinationPath = $config.BackupSettings.DestinationPath
+            Write-Log -Message "Using DestinationPath from config: $DestinationPath" -Level Info
             Write-Verbose "Using DestinationPath from config: $DestinationPath"
         }
         else {
+            Write-Log -Message "DestinationPath not specified and not found in config" -Level Error
             throw "DestinationPath is required. Specify it as a parameter or in the config file."
         }
     }

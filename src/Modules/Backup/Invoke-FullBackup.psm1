@@ -110,6 +110,7 @@ function Invoke-FullBackup {
         try {
             # Create destination directory if it doesn't exist
             if (-not (Test-Path $DestinationPath)) {
+                Write-Log -Message "Creating destination directory: $DestinationPath" -Level Info
                 Write-Verbose "Creating destination directory: $DestinationPath"
                 New-Item -Path $DestinationPath -ItemType Directory -Force | Out-Null
             }
@@ -117,12 +118,17 @@ function Invoke-FullBackup {
             # Get all files from source
             Write-Log -Message "Scanning source directory..." -Level Info
             $files = Get-ChildItem -Path $SourcePath -Recurse -File
+            $originalFileCount = $files.Count
             
             # Apply exclusions
             if ($ExcludePatterns.Count -gt 0) {
                 Write-Verbose "Applying exclusion patterns: $($ExcludePatterns -join ', ')"
                 foreach ($pattern in $ExcludePatterns) {
                     $files = $files | Where-Object { $_.Name -notlike $pattern }
+                }
+                $excludedCount = $originalFileCount - $files.Count
+                if ($excludedCount -gt 0) {
+                    Write-Log -Message "Excluded $excludedCount files based on patterns" -Level Info
                 }
             }
             
