@@ -1,14 +1,14 @@
 {
   "GlobalSettings": {
-    "LogDirectory": "C:\\BackupLogs",
+    "LogDirectory": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\logs",
+    "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\reports",
     "ReportFormat": "JSON",
     "DefaultBackupType": "Full"
   },
   "BackupSettings": {
     "DestinationPath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\backups",
     "CompressBackups": false,
-    "ExcludePatterns": ["*.tmp", "*.log", "*.bak"],
-    "RetentionDays": 30
+    "ExcludePatterns": ["*.tmp", "*.log", "*.bak"]
   },
   "ScheduledBackups": [
     {

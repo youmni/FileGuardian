@@ -78,11 +78,19 @@ function Invoke-FullBackup {
         Import-Module $configHelperModule -Force
         
         # Load and initialize configuration
-        $configResult = Initialize-BackupConfiguration -ConfigPath $ConfigPath -DestinationPath $DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns -BoundParameters $PSBoundParameters
+        $configResult = Initialize-BackupConfiguration -ConfigPath $ConfigPath -DestinationPath $DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns -ReportFormat $ReportFormat -ReportOutputPath $ReportPath -BoundParameters $PSBoundParameters
         
         $DestinationPath = $configResult.DestinationPath
         $Compress = $configResult.Compress
         $ExcludePatterns = $configResult.ExcludePatterns
+        
+        # Use config values if not explicitly provided
+        if (-not $PSBoundParameters.ContainsKey('ReportFormat') -and $configResult.ReportFormat) {
+            $ReportFormat = $configResult.ReportFormat
+        }
+        if (-not $PSBoundParameters.ContainsKey('ReportPath') -and $configResult.ReportOutputPath) {
+            $ReportPath = $configResult.ReportOutputPath
+        }
         
         # Add timestamp to backup name if custom name was provided
         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"

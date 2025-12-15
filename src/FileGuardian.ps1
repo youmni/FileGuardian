@@ -138,6 +138,24 @@ function Invoke-FileGuardian {
             $InformationPreference = 'SilentlyContinue'
         }
         
+        # Load config for DefaultBackupType if BackupType not explicitly provided
+        if ($Action -eq 'Backup' -and -not $PSBoundParameters.ContainsKey('BackupType')) {
+            $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
+            if (Test-Path $configFilePath) {
+                try {
+                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
+                    if ($config.GlobalSettings.DefaultBackupType) {
+                        $BackupType = $config.GlobalSettings.DefaultBackupType
+                        Write-Verbose "Using DefaultBackupType from config: $BackupType"
+                    }
+                }
+                catch {
+                    # Fall back to default
+                    Write-Verbose "Could not load DefaultBackupType from config: $_"
+                }
+            }
+        }
+        
         Write-Log -Message "=== FileGuardian Started ===" -Level Info
         Write-Log -Message "Action: $Action" -Level Info
     }

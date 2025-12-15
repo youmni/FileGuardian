@@ -25,9 +25,30 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     
-    # Set log path (always to daily log file)
+    # Set log path (try config first, then default)
     $dateStamp = Get-Date -Format "yyyyMMdd"
-    $logDir = Join-Path $PSScriptRoot "..\..\..\logs"
+    $logDir = $null
+    
+    # Try to load config for LogDirectory
+    $configPath = Join-Path $PSScriptRoot "..\..\..\config\backup-config.json"
+    if (Test-Path $configPath) {
+        try {
+            $config = Get-Content $configPath -Raw | ConvertFrom-Json
+            if ($config.GlobalSettings.LogDirectory) {
+                $logDir = $config.GlobalSettings.LogDirectory
+            }
+        }
+        catch {
+            # Fall back to default if config can't be read
+            Write-Verbose "Could not load LogDirectory from config: $_"
+        }
+    }
+    
+    # Default to relative logs directory if no config
+    if (-not $logDir) {
+        $logDir = Join-Path $PSScriptRoot "..\..\..\logs"
+    }
+    
     $logPath = Join-Path $logDir "fileguardian_$dateStamp.log"
     
     # Console output with colors

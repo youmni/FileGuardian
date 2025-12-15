@@ -19,6 +19,12 @@ function Initialize-BackupConfiguration {
     .PARAMETER ExcludePatterns
         Override for exclusion patterns from config.
     
+    .PARAMETER ReportFormat
+        Override for report format from config.
+    
+    .PARAMETER ReportOutputPath
+        Override for report output path from config.
+    
     .PARAMETER BoundParameters
         The $PSBoundParameters from the calling function.
     
@@ -38,6 +44,12 @@ function Initialize-BackupConfiguration {
         
         [Parameter()]
         [string[]]$ExcludePatterns,
+        
+        [Parameter()]
+        [string]$ReportFormat,
+        
+        [Parameter()]
+        [string]$ReportOutputPath,
         
         [Parameter()]
         [hashtable]$BoundParameters
@@ -92,10 +104,28 @@ function Initialize-BackupConfiguration {
         $ExcludePatterns = @()
     }
     
+    # Use config for ReportFormat if not explicitly specified
+    if (-not $BoundParameters.ContainsKey('ReportFormat') -and $config -and $config.GlobalSettings.ReportFormat) {
+        $ReportFormat = $config.GlobalSettings.ReportFormat
+        Write-Verbose "Using ReportFormat from config: $ReportFormat"
+    }
+    
+    if (-not $ReportFormat) {
+        $ReportFormat = "JSON"
+    }
+    
+    # Use config for ReportOutputPath if not specified
+    if (-not $ReportOutputPath -and $config -and $config.GlobalSettings.ReportOutputPath) {
+        $ReportOutputPath = $config.GlobalSettings.ReportOutputPath
+        Write-Verbose "Using ReportOutputPath from config: $ReportOutputPath"
+    }
+    
     return [PSCustomObject]@{
         DestinationPath = $DestinationPath
         Compress = $Compress
         ExcludePatterns = $ExcludePatterns
+        ReportFormat = $ReportFormat
+        ReportOutputPath = $ReportOutputPath
         Config = $config
     }
 }
