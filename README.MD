@@ -64,9 +64,9 @@ The system generates comprehensive JSON reports containing:
 
 ## Documentation
 
-Comprehensive documentation is available in the `docs/` directory:
+For detailed usage instructions, configuration options, and examples, please refer to:
 
-- **UserGuide.md** - End-user instructions and examples
+**[UserGuide.md](docs/UserGuide.md)** - Complete user documentation with examples
 
-## Authors
+## Author
 - [@Youmni Malha](https://github.com/Youmni)

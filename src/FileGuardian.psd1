@@ -40,10 +40,12 @@
     )
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-    # Invoke-FileGuardian is the main public API; other exports are for internal tooling only
+    # Invoke-FileGuardian is the main public API; other exports are for internal use by FileGuardian.ps1 and tooling scripts
     FunctionsToExport = @(
         'Invoke-FileGuardian',
         'Invoke-BackupRetention',
+        'Test-BackupIntegrity',
+        'Confirm-ReportSignature',
         'Write-Log'
     )
 
