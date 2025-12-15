@@ -43,7 +43,7 @@ function Compress-Backup {
     )
     
     try {
-        Write-Verbose "Compressing backup..."
+        Write-Log -Message "Starting compression of backup..." -Level Info
         Write-Verbose "Source: $SourcePath"
         Write-Verbose "Destination: $DestinationPath"
         Write-Verbose "Compression Level: $CompressionLevel"
@@ -59,6 +59,7 @@ function Compress-Backup {
         $sourceSize = ($sourceFiles | Measure-Object -Property Length -Sum).Sum
         $fileCount = $sourceFiles.Count
         
+        Write-Log -Message "Compressing $fileCount files (Total: $([Math]::Round($sourceSize/1MB, 2)) MB)" -Level Info
         Write-Verbose "Compressing $fileCount files (Total: $([Math]::Round($sourceSize/1MB, 2)) MB)"
         
         # Remove existing destination if it exists
@@ -74,10 +75,12 @@ function Compress-Backup {
         $compressedSize = (Get-Item $DestinationPath).Length
         $compressionRatio = [Math]::Round((1 - ($compressedSize/$sourceSize)) * 100, 2)
         
+        Write-Log -Message "Compression completed: $([Math]::Round($compressedSize/1MB, 2)) MB (${compressionRatio}% reduction)" -Level Success
         Write-Verbose "Compression completed: $([Math]::Round($compressedSize/1MB, 2)) MB (${compressionRatio}% reduction)"
         
         # Remove source if requested
         if ($RemoveSource) {
+            Write-Log -Message "Removing temporary source directory after compression" -Level Info
             Write-Verbose "Removing source directory: $SourcePath"
             Remove-Item -Path $SourcePath -Recurse -Force
         }

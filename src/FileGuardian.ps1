@@ -11,7 +11,7 @@ function Invoke-FileGuardian {
         user experience compared to calling individual module functions.
     
     .PARAMETER Action
-        The action to perform: Backup, Verify, Restore, Report
+        The action to perform: Backup, Verify and Report
     
     .PARAMETER SourcePath
         Source directory or file to backup (required for Backup action).
@@ -130,12 +130,28 @@ function Invoke-FileGuardian {
     begin {
         # Set up paths
         $scriptRoot = $PSScriptRoot
-        $modulesPath = Join-Path $scriptRoot "Modules"
-            
         # Suppress output if Quiet mode
         if ($Quiet) {
             $VerbosePreference = 'SilentlyContinue'
             $InformationPreference = 'SilentlyContinue'
+        }
+        
+        # Load config for DefaultBackupType if BackupType not explicitly provided
+        if ($Action -eq 'Backup' -and -not $PSBoundParameters.ContainsKey('BackupType')) {
+            $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
+            if (Test-Path $configFilePath) {
+                try {
+                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
+                    if ($config.GlobalSettings.DefaultBackupType) {
+                        $BackupType = $config.GlobalSettings.DefaultBackupType
+                        Write-Verbose "Using DefaultBackupType from config: $BackupType"
+                    }
+                }
+                catch {
+                    # Fall back to default
+                    Write-Verbose "Could not load DefaultBackupType from config: $_"
+                }
+            }
         }
         
         Write-Log -Message "=== FileGuardian Started ===" -Level Info
@@ -187,25 +203,6 @@ function Invoke-FileGuardian {
                             if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
                             
                             $result = Invoke-IncrementalBackup @backupParams
-                        }
-                        'Differential' {
-                            Write-Log -Message "Starting DIFFERENTIAL backup..." -Level Info
-                            Write-Log -Message "Source: $SourcePath" -Level Info
-                            
-                            # Build parameters
-                            $backupParams = @{
-                                SourcePath = $SourcePath
-                            }
-                            
-                            if ($DestinationPath) { $backupParams.DestinationPath = $DestinationPath }
-                            if ($BackupName) { $backupParams.BackupName = $BackupName }
-                            if ($ConfigPath) { $backupParams.ConfigPath = $ConfigPath }
-                            if ($Compress) { $backupParams.Compress = $true }
-                            if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
-                            if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
-                            if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
-                            
-                            $result = Invoke-DifferentialBackup @backupParams
                         }
                     }
                     

@@ -29,6 +29,7 @@
         'Modules\Config\Read-Config.psm1',
         'Modules\Backup\Invoke-FullBackup.psm1',
         'Modules\Backup\Invoke-IncrementalBackup.psm1',
+        'Modules\Backup\Invoke-BackupRetention.psm1',
         'Modules\Backup\Compress-Backup.psm1',
         'Modules\Integrity\Test-BackupIntegrity.psm1',
         'Modules\Integrity\Get-FileIntegrityHash.psm1',
@@ -39,19 +40,13 @@
     )
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
+    # Invoke-FileGuardian is the main public API; other exports are for internal use by FileGuardian.ps1 and tooling scripts
     FunctionsToExport = @(
         'Invoke-FileGuardian',
-        'Write-Log',
-        'Read-Config',
-        'Invoke-FullBackup',
-        'Invoke-IncrementalBackup',
-        'Compress-Backup',
+        'Invoke-BackupRetention',
         'Test-BackupIntegrity',
-        'Get-FileIntegrityHash',
-        'Save-IntegrityState',
-        'Write-JsonReport',
-        'Protect-Report',
-        'Confirm-ReportSignature'
+        'Confirm-ReportSignature',
+        'Write-Log'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

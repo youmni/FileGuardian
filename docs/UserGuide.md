@@ -95,9 +95,9 @@ Creates a complete backup of all files in the source directory.
 | `-SourcePath` | Yes | - | The directory to backup |
 | `-DestinationPath` | No | From config | Where to store the backup |
 | `-BackupName` | No | Auto-generated | Custom name for the backup |
-| `-BackupType` | No | `Full` | Type: `Full`, `Incremental`, or `Differential` |
-| `-ReportFormat` | No | `JSON` | Report format: `JSON`, `HTML`, or `CSV` |
-| `-ReportOutputPath` | No | `.\reports` | Where to save the report |
+| `-BackupType` | No | From config (`Full`) | Type: `Full` or `Incremental` |
+| `-ReportFormat` | No | From config (`JSON`) | Report format: `JSON`, `HTML`, or `CSV` |
+| `-ReportOutputPath` | No | From config | Where to save the report |
 | `-Compress` | No | `false` | Compress backup to ZIP |
 | `-ExcludePatterns` | No | From config | Array of patterns to exclude |
 | `-ConfigPath` | No | `config\backup-config.json` | Custom config file path |
@@ -358,6 +358,19 @@ Edit `config\backup-config.json` to define your scheduled backups:
 .\tools\Register-ScheduledTask.ps1 -Remove
 ```
 
+### Important: Scheduling Best Practices
+
+**Avoid scheduling multiple backups at the same time.** Simultaneous backups compete for system resources.
+
+**Recommended:** Stagger backup times by 5-10 minutes.
+
+```json
+// Good: Staggered times
+{ "Name": "Documents", "Schedule": { "Time": "02:00" } }
+{ "Name": "Projects", "Schedule": { "Time": "02:30" } }
+{ "Name": "Photos", "Schedule": { "Time": "03:00" } }
+```
+
 **Remove Specific Task:**
 ```powershell
 .\tools\Register-ScheduledTask.ps1 -BackupName "DailyDocuments" -Remove
@@ -376,18 +389,55 @@ Edit `config\backup-config.json` to define your scheduled backups:
 - If computer was off, task runs when it starts
 - Uses `-StartWhenAvailable` flag
 
+**Automatic Retention Cleanup:**
+
+For each backup task, FileGuardian creates TWO scheduled tasks:
+
+1. **Backup Task** (e.g., `FileGuardian_DailyDocuments`)
+   - Runs according to your schedule (daily, weekly, etc.)
+   - Performs the actual backup operation
+
+2. **Cleanup Task** (e.g., `FileGuardian_Cleanup_DailyDocuments`)
+   - Automatically triggered when backup completes successfully
+   - Removes old backups based on `RetentionDays` setting
+   - Event-driven: only runs after successful backup
+   - No manual intervention needed
+
+**How It Works:**
+```
+1. Backup task runs at scheduled time (e.g., 02:00)
+2. Backup completes successfully
+3. Windows logs "Task Completed" event (Event ID 102)
+4. Cleanup task automatically triggers
+5. Old backups (older than RetentionDays) are removed
+6. Logs show: "Deleted X backup(s), freed Y MB"
+```
+
 **Task Monitoring:**
 ```powershell
-# View scheduled tasks
+# View all FileGuardian scheduled tasks (backup + cleanup)
 Get-ScheduledTask | Where-Object { $_.TaskName -like "FileGuardian_*" }
 
 # View task details
 Get-ScheduledTaskInfo -TaskName "FileGuardian_DailyDocuments"
+
+# View cleanup task details
+Get-ScheduledTaskInfo -TaskName "FileGuardian_Cleanup_DailyDocuments"
 ```
 
 ---
 
 ## Configuration
+
+### Configuration Hierarchy
+
+FileGuardian uses a **3-level priority system** for settings:
+
+1. **Command-line parameters** (highest priority) - Explicitly specified values
+2. **Config file values** - Defaults from `backup-config.json`
+3. **Hardcoded defaults** (lowest priority) - Built-in fallbacks
+
+**Example:** If you don't specify `-ReportFormat`, FileGuardian checks the config file. If not in config, it uses `JSON` as default.
 
 ### Global Settings
 
@@ -397,6 +447,7 @@ Located in `config\backup-config.json`:
 {
   "GlobalSettings": {
     "LogDirectory": "C:\\BackupLogs",
+    "ReportOutputPath": "C:\\BackupReports",
     "ReportFormat": "JSON",
     "DefaultBackupType": "Full"
   },
@@ -521,12 +572,74 @@ Weekly:  Full Backup (Sunday 03:00)
 Daily:   Incremental Backup (02:00)
 ```
 
+**Directory Organization:**
+
+FileGuardian expects each backup source to have its own dedicated backup directory. This ensures proper state tracking and integrity verification.
+
+**Correct Structure:**
+```
+D:\Backups\
+  ├── ProjectA\
+  │   ├── ProjectA_20251201_120000\
+  │   ├── ProjectA_20251202_120000\
+  │   └── ProjectA_20251203_120000\
+  └── ProjectB\
+      ├── ProjectB_20251201_120000\
+      ├── ProjectB_20251202_120000\
+      └── ProjectB_20251203_120000\
+```
+
+**Incorrect - Mixed Sources:**
+```
+D:\Backups\
+  ├── ProjectA_20251201_120000\
+  ├── ProjectB_20251201_120000\
+  ├── ProjectA_20251202_120000\
+  └── ProjectB_20251202_120000\
+```
+
+**Why This Matters:**
+- State files (`latest.json`, `prev.json`) track a single source
+- Incremental backups compare against the correct previous state
+- Integrity verification works properly
+- Reports are accurate and meaningful
+
+**Example Configuration:**
+```powershell
+# ProjectA backups
+.\Start-FileGuardian.ps1 -Action Backup `
+    -SourcePath "C:\Work\ProjectA" `
+    -DestinationPath "D:\Backups\ProjectA" `
+    -BackupName "ProjectA"
+
+# ProjectB backups
+.\Start-FileGuardian.ps1 -Action Backup `
+    -SourcePath "C:\Work\ProjectB" `
+    -DestinationPath "D:\Backups\ProjectB" `
+    -BackupName "ProjectB"
+```
+
+### Retention Management
+
+**Automatic Cleanup:**
+- Configured via `RetentionDays` in config
+- Can be set globally or per scheduled backup
+- Cleanup runs automatically after each successful backup
+- No manual intervention required
+
+**What Gets Cleaned:**
+- Backup directories older than RetentionDays
+- Compressed ZIP backups older than RetentionDays
+- Orphaned state files (states without corresponding backups)
+- **Always kept:** `latest.json` and `prev.json` state files
+
 ### Security
 
 **Monitor Integrity:**
 - Check reports regularly
 - Verify critical backups monthly
-- 
+- Review cleanup logs to ensure proper retention
+
 ### Performance
 
 **Optimize Exclusions:**

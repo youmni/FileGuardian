@@ -1,6 +1,7 @@
 {
   "GlobalSettings": {
-    "LogDirectory": "C:\\BackupLogs",
+    "LogDirectory": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\logs",
+    "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\reports",
     "ReportFormat": "JSON",
     "DefaultBackupType": "Full"
   },
@@ -13,7 +14,7 @@
   "ScheduledBackups": [
     {
       "Name": "aklaa",
-      "Enabled": true,
+      "Enabled": false,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
       "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
       "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",

@@ -79,6 +79,7 @@ function Test-BackupIntegrity {
             
             if ((Test-Path $BackupPath) -and (Get-Item $BackupPath).Extension -eq '.zip') {
                 $isZip = $true
+                Write-Log -Message "Backup is compressed (ZIP). Extracting for verification..." -Level Info
                 Write-Verbose "Backup is a ZIP archive, extracting..."
                 
                 # Create temp directory for extraction
@@ -89,13 +90,14 @@ function Test-BackupIntegrity {
                 Expand-Archive -Path $BackupPath -DestinationPath $tempExtractPath -Force
                 $pathToVerify = $tempExtractPath
                 
+                Write-Log -Message "Extraction completed to temporary directory" -Level Info
                 Write-Verbose "Extracted to: $tempExtractPath"
             }
             
             # Resolve backup path to absolute
             $absoluteBackupPath = (Resolve-Path $pathToVerify).Path
             
-            # Check for backup metadata (for incremental/differential backups)
+            # Check for backup metadata (for incremental backups)
             $metadataPath = Join-Path $absoluteBackupPath ".backup-metadata.json"
             $backupMetadata = $null
             $isIncrementalOrDifferential = $false

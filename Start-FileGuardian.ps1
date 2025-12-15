@@ -14,7 +14,7 @@
     .\Start-FileGuardian.ps1 -Action Verify -BackupPath ".\backups\MyBackup_20251213_120000"
     
 .EXAMPLE
-    .\Start-FileGuardian.ps1 -Action Backup -SourcePath "C:\Data" -BackupType Incremental -Compress -SignReport
+    .\Start-FileGuardian.ps1 -Action Backup -SourcePath "C:\Data" -BackupType Incremental -Compress
 
 .NOTES
     This is a convenience wrapper. You can also import the module directly:
