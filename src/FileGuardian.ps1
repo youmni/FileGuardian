@@ -130,8 +130,6 @@ function Invoke-FileGuardian {
     begin {
         # Set up paths
         $scriptRoot = $PSScriptRoot
-        $modulesPath = Join-Path $scriptRoot "Modules"
-            
         # Suppress output if Quiet mode
         if ($Quiet) {
             $VerbosePreference = 'SilentlyContinue'

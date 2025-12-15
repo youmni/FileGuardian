@@ -182,6 +182,64 @@ foreach ($backup in $backupsToProcess) {
         Write-Host "   Source: $($backup.SourcePath)" -ForegroundColor Gray
         Write-Host "   Schedule: $($backup.Schedule.Frequency) at $($backup.Schedule.Time)" -ForegroundColor Gray
         Write-Host "   Type: $($backup.BackupType)" -ForegroundColor Gray
+        
+        # Create retention cleanup task that runs after backup completes
+        $cleanupTaskName = "FileGuardian_Cleanup_$($backup.Name)"
+        
+        # Remove existing cleanup task if it exists
+        $existingCleanupTask = Get-ScheduledTask -TaskName $cleanupTaskName -ErrorAction SilentlyContinue
+        if ($existingCleanupTask) {
+            Unregister-ScheduledTask -TaskName $cleanupTaskName -Confirm:$false
+        }
+        
+        # Build cleanup command
+        $cleanupScriptPath = Join-Path $PSScriptRoot "Invoke-RetentionCleanup.ps1"
+        $cleanupArguments = @(
+            "-NoProfile"
+            "-ExecutionPolicy Bypass"
+            "-File `"$cleanupScriptPath`""
+            "-BackupName `"$($backup.Name)`""
+        )
+        $cleanupArgumentString = $cleanupArguments -join " "
+        
+        # Create cleanup action
+        $cleanupAction = New-ScheduledTaskAction `
+            -Execute "PowerShell.exe" `
+            -Argument $cleanupArgumentString
+        
+        # Create event trigger: runs when backup task completes successfully
+        $cleanupTrigger = New-ScheduledTaskTrigger -AtLogOn
+        $cleanupTrigger.Enabled = $false # Disable logon trigger, we'll use event trigger
+        
+        # Register cleanup task
+        $cleanupTask = Register-ScheduledTask `
+            -TaskName $cleanupTaskName `
+            -Action $cleanupAction `
+            -Trigger $cleanupTrigger `
+            -Principal $principal `
+            -Settings $settings `
+            -Description "FileGuardian retention cleanup for: $($backup.Name)" `
+            -Force
+        
+        # Add event-based trigger using CIM (runs after backup task completes)
+        $CIMTriggerClass = Get-CimClass -ClassName MSFT_TaskEventTrigger -Namespace Root/Microsoft/Windows/TaskScheduler:MSFT_TaskEventTrigger
+        $cleanupEventTrigger = New-CimInstance -CimClass $CIMTriggerClass -ClientOnly
+        $cleanupEventTrigger.Subscription = @"
+<QueryList>
+  <Query Id="0" Path="Microsoft-Windows-TaskScheduler/Operational">
+    <Select Path="Microsoft-Windows-TaskScheduler/Operational">
+      *[System[(EventID=102)]] and *[EventData[Data[@Name='TaskName']='\$taskName']]
+    </Select>
+  </Query>
+</QueryList>
+"@
+        $cleanupEventTrigger.Enabled = $true
+        
+        # Update task with event trigger
+        $cleanupTask.Triggers.Add($cleanupEventTrigger)
+        $cleanupTask | Set-ScheduledTask | Out-Null
+        
+        Write-Host "   Cleanup task registered: $cleanupTaskName" -ForegroundColor Gray
     }
     catch {
         Write-Error "Error registering task '$taskName': $_"

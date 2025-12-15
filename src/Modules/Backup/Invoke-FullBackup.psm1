@@ -73,10 +73,6 @@ function Invoke-FullBackup {
     )
     
     begin {
-        # Import helper modules
-        $configHelperModule = Join-Path $PSScriptRoot "Initialize-BackupConfiguration.psm1"
-        Import-Module $configHelperModule -Force
-        
         # Load and initialize configuration
         $configResult = Initialize-BackupConfiguration -ConfigPath $ConfigPath -DestinationPath $DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns -ReportFormat $ReportFormat -ReportOutputPath $ReportPath -BoundParameters $PSBoundParameters
         
@@ -100,16 +96,7 @@ function Invoke-FullBackup {
         
         $backupDestination = Join-Path $DestinationPath $BackupName
         
-        # Import Compress-Backup module if compression is needed
-        if ($Compress) {
-            $compressModule = Join-Path $PSScriptRoot "Compress-Backup.psm1"
-            if (Test-Path $compressModule) {
-                Import-Module $compressModule -Force
-            }
-            else {
-                throw "Compress-Backup module not found at: $compressModule"
-            }
-        }
+        # Compress-Backup is available via manifest NestedModules
         
         Write-Log -Message "Starting full backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
@@ -175,9 +162,6 @@ function Invoke-FullBackup {
             Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
             # Save backup metadata for integrity verification BEFORE compression
-            $metadataHelperModule = Join-Path $PSScriptRoot "Save-BackupMetadata.psm1"
-            Import-Module $metadataHelperModule -Force
-            
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Full" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath
             
@@ -224,24 +208,15 @@ function Invoke-FullBackup {
             }
             
             # Always save integrity state
-            $integrityHelperModule = Join-Path $PSScriptRoot "Invoke-IntegrityStateSave.psm1"
-            Import-Module $integrityHelperModule -Force
-            
             $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
             
             # Verify previous backups integrity
-            $previousBackupsHelperModule = Join-Path $PSScriptRoot "Test-PreviousBackups.psm1"
-            Import-Module $previousBackupsHelperModule -Force
-            
             $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             
             # Generate report (ALWAYS - this is mandatory)
-            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
-            Import-Module $reportHelperModule -Force
-            
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             
             return [PSCustomObject]$backupInfo

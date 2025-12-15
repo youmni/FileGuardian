@@ -78,10 +78,6 @@ function Invoke-IncrementalBackup {
     )
     
     begin {
-        # Import helper modules
-        $configHelperModule = Join-Path $PSScriptRoot "Initialize-BackupConfiguration.psm1"
-        Import-Module $configHelperModule -Force
-        
         # Load and initialize configuration
         $configResult = Initialize-BackupConfiguration -ConfigPath $ConfigPath -DestinationPath $DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns -ReportFormat $ReportFormat -ReportOutputPath $ReportPath -BoundParameters $PSBoundParameters
         
@@ -116,16 +112,7 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
         }
         
-        # Import Compress-Backup module if compression is needed
-        if ($Compress) {
-            $compressModule = Join-Path $PSScriptRoot "Compress-Backup.psm1"
-            if (Test-Path $compressModule) {
-                Import-Module $compressModule -Force
-            }
-            else {
-                throw "Compress-Backup module not found at: $compressModule"
-            }
-        }
+        # Compress-Backup is available via manifest NestedModules
         
         Write-Log -Message "Starting incremental backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
@@ -152,8 +139,6 @@ function Invoke-IncrementalBackup {
             # If source mismatch, delegate to full backup
             if ($script:performFullBackupFallback) {
                 Write-Log -Message "Delegating to full backup due to missing or mismatched state" -Level Info
-                $fullBackupModule = Join-Path $PSScriptRoot "Invoke-FullBackup.psm1"
-                Import-Module $fullBackupModule -Force
                 
                 $fullBackupParams = @{
                     SourcePath = $SourcePath
@@ -183,10 +168,6 @@ function Invoke-IncrementalBackup {
             }
             
             Write-Log -Message "Previous state: $($previousState.FileCount) files, last backup at $($previousState.Timestamp)" -Level Info
-            
-            # Import Get-FileIntegrityHash module
-            $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.psm1"
-            Import-Module $integrityModule -Force
             
             # Get current state of source files
             Write-Log -Message "Scanning source directory and calculating hashes..." -Level Info
@@ -296,9 +277,6 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
             
             # Save backup metadata for integrity verification BEFORE compression
-            $metadataHelperModule = Join-Path $PSScriptRoot "Save-BackupMetadata.psm1"
-            Import-Module $metadataHelperModule -Force
-            
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp
             
@@ -357,15 +335,9 @@ function Invoke-IncrementalBackup {
             }
             
             # Always save integrity state (update to reflect current state)
-            $integrityHelperModule = Join-Path $PSScriptRoot "Invoke-IntegrityStateSave.psm1"
-            Import-Module $integrityHelperModule -Force
-            
             $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
             
             # Verify previous backups integrity
-            $previousBackupsHelperModule = Join-Path $PSScriptRoot "Test-PreviousBackups.psm1"
-            Import-Module $previousBackupsHelperModule -Force
-            
             $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups

@@ -24,6 +24,7 @@
     NestedModules = @(
         'Compress-Backup.psm1',
         'Initialize-BackupConfiguration.psm1',
+        'Invoke-BackupRetention.psm1',
         'Invoke-DifferentialBackup.psm1',
         'Invoke-FullBackup.psm1',
         'Invoke-IncrementalBackup.psm1',
