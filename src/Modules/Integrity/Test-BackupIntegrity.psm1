@@ -97,7 +97,7 @@ function Test-BackupIntegrity {
             # Resolve backup path to absolute
             $absoluteBackupPath = (Resolve-Path $pathToVerify).Path
             
-            # Check for backup metadata (for incremental/differential backups)
+            # Check for backup metadata (for incremental backups)
             $metadataPath = Join-Path $absoluteBackupPath ".backup-metadata.json"
             $backupMetadata = $null
             $isIncrementalOrDifferential = $false

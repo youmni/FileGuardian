@@ -11,7 +11,7 @@ function Invoke-FileGuardian {
         user experience compared to calling individual module functions.
     
     .PARAMETER Action
-        The action to perform: Backup, Verify, Restore, Report
+        The action to perform: Backup, Verify and Report
     
     .PARAMETER SourcePath
         Source directory or file to backup (required for Backup action).
@@ -203,25 +203,6 @@ function Invoke-FileGuardian {
                             if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
                             
                             $result = Invoke-IncrementalBackup @backupParams
-                        }
-                        'Differential' {
-                            Write-Log -Message "Starting DIFFERENTIAL backup..." -Level Info
-                            Write-Log -Message "Source: $SourcePath" -Level Info
-                            
-                            # Build parameters
-                            $backupParams = @{
-                                SourcePath = $SourcePath
-                            }
-                            
-                            if ($DestinationPath) { $backupParams.DestinationPath = $DestinationPath }
-                            if ($BackupName) { $backupParams.BackupName = $BackupName }
-                            if ($ConfigPath) { $backupParams.ConfigPath = $ConfigPath }
-                            if ($Compress) { $backupParams.Compress = $true }
-                            if ($ExcludePatterns) { $backupParams.ExcludePatterns = $ExcludePatterns }
-                            if ($ReportFormat) { $backupParams.ReportFormat = $ReportFormat }
-                            if ($ReportOutputPath) { $backupParams.ReportPath = $ReportOutputPath }
-                            
-                            $result = Invoke-DifferentialBackup @backupParams
                         }
                     }
                     

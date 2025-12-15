@@ -47,20 +47,10 @@ FileGuardian is a robust, modular PowerShell tool designed to automate file back
 
 ### User Experience
 - [ ] Text-based User Interface (TUI)  
-- [ ] Configuration validation and dry-run mode  
 
 ### Notifications & Reporting
 - [ ] Email notifications for errors or integrity issues  
 - [x] Additional report formats (CSV, HTML)  
-
-## Reports
-
-The system generates comprehensive JSON reports containing:
-- Number of processed files
-- New, modified, or deleted files
-- Hash verification results
-- Errors or integrity mismatches
-- Execution timestamps
 
 ## Documentation
 

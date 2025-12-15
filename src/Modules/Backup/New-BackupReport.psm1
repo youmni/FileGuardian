@@ -83,7 +83,6 @@ function New-BackupReport {
             $BackupInfo['ReportFormat'] = $ReportFormat
             Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
             
-            # Optionally sign report if signing module exists
             if (Test-Path $signModule) {
                 Import-Module $signModule -Force
                 $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
