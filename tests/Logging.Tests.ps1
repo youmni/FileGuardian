@@ -1,15 +1,26 @@
 BeforeAll {
+    # Set project root and config path FIRST
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
+    $configPath = Join-Path $ProjectRoot "config/backup-config.json"
+    $backupConfig = $null
+    $originalConfig = $null
+    # Patch config/backup-config.json tijdelijk zodat LogDirectory naar test_logs wijst
+    if (Test-Path $configPath) {
+        $originalConfig = Get-Content $configPath -Raw
+        $backupConfig = $originalConfig | ConvertFrom-Json
+        $backupConfig.GlobalSettings.LogDirectory = Join-Path $TestDrive "test_logs"
+        $backupConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath
+    }
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
-    
+
     # Import the logging module
     Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
-    
+
     # Helper function to get test log directory
     function script:Get-TestLogDir {
         return Join-Path $TestDrive "test_logs"
     }
-    
+
     # Helper function to get test log path
     function script:Get-TestLogPath {
         $dateStamp = Get-Date -Format "yyyyMMdd"
@@ -34,6 +45,10 @@ Describe "Write-Log" {
     }
     
     AfterEach {
+            # Herstel originele config/backup-config.json na elke test
+            if ($originalConfig) {
+                Set-Content -Path $configPath -Value $originalConfig
+            }
         # Clean up test logs
         if (Test-Path $script:TestLogDir) {
             Remove-Item -Path $script:TestLogDir -Recurse -Force -ErrorAction SilentlyContinue
