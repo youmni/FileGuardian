@@ -52,12 +52,12 @@ try {
     
     # Determine which backups to clean up
     $backupsToClean = if ($BackupName) {
-        $config.ScheduledBackups | Where-Object { $_.Name -eq $BackupName }
-        if (-not $backupsToClean) {
+        $found = $config.ScheduledBackups | Where-Object { $_.Name -eq $BackupName }
+        if (-not $found) {
             Write-Warning "Backup '$BackupName' not found in configuration."
             exit 0
         }
-        $backupsToClean
+        $found
     } else {
         $config.ScheduledBackups
     }
