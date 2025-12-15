@@ -358,6 +358,19 @@ Edit `config\backup-config.json` to define your scheduled backups:
 .\tools\Register-ScheduledTask.ps1 -Remove
 ```
 
+### Important: Scheduling Best Practices
+
+**Avoid scheduling multiple backups at the same time.** Simultaneous backups compete for system resources.
+
+**Recommended:** Stagger backup times by 5-10 minutes.
+
+```json
+// Good: Staggered times
+{ "Name": "Documents", "Schedule": { "Time": "02:00" } }
+{ "Name": "Projects", "Schedule": { "Time": "02:30" } }
+{ "Name": "Photos", "Schedule": { "Time": "03:00" } }
+```
+
 **Remove Specific Task:**
 ```powershell
 .\tools\Register-ScheduledTask.ps1 -BackupName "DailyDocuments" -Remove
