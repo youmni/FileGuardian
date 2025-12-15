@@ -235,8 +235,8 @@ foreach ($backup in $backupsToProcess) {
 "@
         $cleanupEventTrigger.Enabled = $true
         
-        # Update task with event trigger
-        $cleanupTask.Triggers.Add($cleanupEventTrigger)
+        # Update task with event trigger (replace triggers array)
+        $cleanupTask.Triggers = @($cleanupEventTrigger)
         $cleanupTask | Set-ScheduledTask | Out-Null
         
         Write-Host "   Cleanup task registered: $cleanupTaskName" -ForegroundColor Gray

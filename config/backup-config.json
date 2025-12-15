@@ -8,12 +8,13 @@
   "BackupSettings": {
     "DestinationPath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\FileGuardian\\backups",
     "CompressBackups": false,
-    "ExcludePatterns": ["*.tmp", "*.log", "*.bak"]
+    "ExcludePatterns": ["*.tmp", "*.log", "*.bak"],
+    "RetentionDays": 30
   },
   "ScheduledBackups": [
     {
       "Name": "aklaa",
-      "Enabled": true,
+      "Enabled": false,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
       "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
       "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",
