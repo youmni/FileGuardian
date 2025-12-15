@@ -73,49 +73,16 @@ function Invoke-FullBackup {
     )
     
     begin {
-        # Import Read-Config module
-        $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.psm1"
-        Import-Module $configModule -Force
+        # Import helper modules
+        $configHelperModule = Join-Path $PSScriptRoot "Initialize-BackupConfiguration.psm1"
+        Import-Module $configHelperModule -Force
         
-        # Load configuration
-        try {
-            $config = if ($ConfigPath) {
-                Read-Config -ConfigPath $ConfigPath
-            } else {
-                Read-Config -ErrorAction SilentlyContinue
-            }
-        }
-        catch {
-            Write-Log -Message "Could not load config file: $_. Using parameters only." -Level Warning
-            $config = $null
-        }
+        # Load and initialize configuration
+        $configResult = Initialize-BackupConfiguration -ConfigPath $ConfigPath -DestinationPath $DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns -BoundParameters $PSBoundParameters
         
-        # Apply config defaults for destination if not specified
-        if (-not $DestinationPath) {
-            if ($config -and $config.BackupSettings.DestinationPath) {
-                $DestinationPath = $config.BackupSettings.DestinationPath
-                Write-Verbose "Using DestinationPath from config: $DestinationPath"
-            }
-            else {
-                throw "DestinationPath is required. Specify it as a parameter or in the config file."
-            }
-        }
-        
-        # Use config for compression if not explicitly specified
-        if (-not $PSBoundParameters.ContainsKey('Compress') -and $config -and $config.BackupSettings.CompressBackups) {
-            $Compress = $config.BackupSettings.CompressBackups
-            Write-Verbose "Using Compress setting from config: $Compress"
-        }
-        
-        # Use config for exclusion patterns if not specified
-        if (-not $ExcludePatterns -and $config -and $config.BackupSettings.ExcludePatterns) {
-            $ExcludePatterns = $config.BackupSettings.ExcludePatterns
-            Write-Verbose "Using ExcludePatterns from config: $($ExcludePatterns -join ', ')"
-        }
-        
-        if (-not $ExcludePatterns) {
-            $ExcludePatterns = @()
-        }
+        $DestinationPath = $configResult.DestinationPath
+        $Compress = $configResult.Compress
+        $ExcludePatterns = $configResult.ExcludePatterns
         
         # Add timestamp to backup name if custom name was provided
         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -194,20 +161,11 @@ function Invoke-FullBackup {
             Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
             # Save backup metadata for integrity verification BEFORE compression
-            try {
-                $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
-                $metadata = @{
-                    BackupType = "Full"
-                    SourcePath = (Resolve-Path $SourcePath).Path
-                    Timestamp = $timestamp
-                    FilesBackedUp = $copiedFiles
-                }
-                $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataTargetPath -Encoding UTF8
-                Write-Verbose "Backup metadata saved: $metadataTargetPath"
-            }
-            catch {
-                Write-Warning "Failed to save backup metadata: $_"
-            }
+            $metadataHelperModule = Join-Path $PSScriptRoot "Save-BackupMetadata.psm1"
+            Import-Module $metadataHelperModule -Force
+            
+            $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
+            Save-BackupMetadata -BackupType "Full" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath
             
             # Handle compression or return direct copy info
             if ($Compress) {
@@ -252,178 +210,25 @@ function Invoke-FullBackup {
             }
             
             # Always save integrity state
-            try {
-                Write-Log -Message "Saving integrity state..." -Level Info
-                $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.psm1"
-                if (Test-Path $integrityModule) {
-                    Import-Module $integrityModule -Force
-                    $stateDir = Join-Path $DestinationPath "states"
-                    # Determine backup name for state file
-                    $stateBackupName = if ($Compress) {
-                        (Get-Item $backupInfo.DestinationPath).BaseName
-                    } else {
-                        Split-Path $backupInfo.DestinationPath -Leaf
-                    }
-                    Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
-                    $backupInfo['IntegrityStateSaved'] = $true
-                }
-                else {
-                    Write-Warning "Save-IntegrityState module not found. Integrity state not saved."
-                    $backupInfo['IntegrityStateSaved'] = $false
-                }
-            }
-            catch {
-                Write-Warning "Failed to save integrity state: $_"
-                $backupInfo['IntegrityStateSaved'] = $false
-            }
+            $integrityHelperModule = Join-Path $PSScriptRoot "Invoke-IntegrityStateSave.psm1"
+            Import-Module $integrityHelperModule -Force
+            
+            $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
             
             # Verify previous backups integrity
-            try {
-                Write-Log -Message "Verifying previous backups integrity..." -Level Info
-                $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.psm1"
-                
-                if (Test-Path $testIntegrityModule) {
-                    Import-Module $testIntegrityModule -Force
-                    
-                    # Find all previous backups in the destination path
-                    $backupDir = if ($Compress) { Split-Path $backupInfo.DestinationPath -Parent } else { Split-Path $backupInfo.DestinationPath -Parent }
-                    $previousBackups = @()
-                    $corruptedBackups = @()
-                    $verifiedBackups = @()
-                    
-                    # Normalize current source path for comparison
-                    $normalizedCurrentSource = (Resolve-Path $SourcePath).Path
-                    
-                    if (Test-Path $backupDir) {
-                        # Get all backup directories and ZIP files (exclude current backup and states folder)
-                        $currentBackupName = if ($Compress) { Split-Path $backupInfo.DestinationPath -Leaf } else { Split-Path $backupInfo.DestinationPath -Leaf }
-                        $allBackupDirs = Get-ChildItem -Path $backupDir -Directory | Where-Object { $_.Name -ne "states" -and $_.Name -ne $currentBackupName }
-                        $allBackupZips = Get-ChildItem -Path $backupDir -File -Filter "*.zip" | Where-Object { $_.Name -ne $currentBackupName }
-                        $allBackups = @($allBackupDirs) + @($allBackupZips)
-                        
-                        foreach ($backup in $allBackups) {
-                            try {
-                                # Verify all backups in the destination folder, regardless of source
-                                $verifyResult = Test-BackupIntegrity -BackupPath $backup.FullName
-                                
-                                if ($verifyResult -and -not $verifyResult.IsIntact) {
-                                    # Get lists of corrupted and missing files
-                                    $corruptedFilesList = if ($verifyResult.Corrupted) {
-                                        @($verifyResult.Corrupted | ForEach-Object { $_.Path } | Where-Object { $_ })
-                                    } else { @() }
-                                    
-                                    $missingFilesList = if ($verifyResult.Missing) {
-                                        @($verifyResult.Missing | ForEach-Object { $_.RelativePath } | Where-Object { $_ })
-                                    } else { @() }
-                                    
-                                    $corruptedBackups += [PSCustomObject]@{
-                                        BackupName = $backup.Name
-                                        BackupPath = $backup.FullName
-                                        CorruptedFiles = $verifyResult.Summary.CorruptedCount
-                                        MissingFiles = $verifyResult.Summary.MissingCount
-                                        TotalIssues = $verifyResult.Summary.CorruptedCount + $verifyResult.Summary.MissingCount
-                                        CorruptedFilesList = $corruptedFilesList
-                                        MissingFilesList = $missingFilesList
-                                    }
-                                    Write-Log -Message "Previous backup is CORRUPTED: $($backup.Name) ($($verifyResult.Summary.CorruptedCount) corrupted, $($verifyResult.Summary.MissingCount) missing)" -Level Warning
-                                }
-                                else {
-                                    $verifiedBackups += $backup.Name
-                                }
-                            }
-                            catch {
-                                Write-Verbose "Could not verify backup: $($backup.Name) - $_"
-                            }
-                        }
-                    }
-                    
-                    $backupInfo['PreviousBackupsVerified'] = $verifiedBackups.Count + $corruptedBackups.Count
-                    $backupInfo['CorruptedBackups'] = $corruptedBackups
-                    $backupInfo['VerifiedBackupsOK'] = $verifiedBackups.Count
-                    
-                    if ($corruptedBackups.Count -gt 0) {
-                        Write-Log -Message "WARNING: Found $($corruptedBackups.Count) corrupted previous backup(s)!" -Level Warning
-                    }
-                    else {
-                        Write-Log -Message "All previous backups verified successfully ($($verifiedBackups.Count) checked)" -Level Info
-                    }
-                }
-                else {
-                    $backupInfo['PreviousBackupsVerified'] = 0
-                    $backupInfo['CorruptedBackups'] = @()
-                }
-            }
-            catch {
-                Write-Warning "Failed to verify previous backups: $_"
-                $backupInfo['PreviousBackupsVerified'] = 0
-                $backupInfo['CorruptedBackups'] = @()
-            }
+            $previousBackupsHelperModule = Join-Path $PSScriptRoot "Test-PreviousBackups.psm1"
+            Import-Module $previousBackupsHelperModule -Force
+            
+            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
+            $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
+            $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
+            $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             
             # Generate report (ALWAYS - this is mandatory)
-            try {
-                Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info
-                $signModule = Join-Path $PSScriptRoot "..\Reporting\Protect-Report.psm1"
-                
-                # Select report module based on format
-                $reportModule = switch ($ReportFormat) {
-                    "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
-                    "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.psm1" }
-                    "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.psm1" }
-                    default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
-                }
-                
-                if (Test-Path $reportModule) {
-                    Import-Module $reportModule -Force
-                    
-                    # Generate report (ALWAYS)
-                    $reportInfo = if ($ReportFormat -eq "JSON") {
-                        if ($ReportPath) {
-                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
-                        } else {
-                            Write-JsonReport -BackupInfo ([PSCustomObject]$backupInfo)
-                        }
-                    }
-                    elseif ($ReportFormat -eq "HTML") {
-                        if ($ReportPath) {
-                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
-                        } else {
-                            Write-HtmlReport -BackupInfo ([PSCustomObject]$backupInfo)
-                        }
-                    }
-                    elseif ($ReportFormat -eq "CSV") {
-                        if ($ReportPath) {
-                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo) -ReportPath $ReportPath
-                        } else {
-                            Write-CsvReport -BackupInfo ([PSCustomObject]$backupInfo)
-                        }
-                    }
-                    
-                    if ($reportInfo -and $reportInfo.ReportPath) {
-                        $backupInfo['ReportPath'] = $reportInfo.ReportPath
-                        $backupInfo['ReportFormat'] = $ReportFormat
-                        Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
-                        
-                        # Optionally sign report if signing module exists
-                        if (Test-Path $signModule) {
-                            Import-Module $signModule -Force
-                            $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
-                            $backupInfo['ReportSigned'] = $true
-                            $backupInfo['ReportSignature'] = $signInfo.Hash
-                            Write-Log -Message "Report signed successfully" -Level Info
-                        }
-                    }
-                }
-                else {
-                    Write-Log -Message "Report module not found: $reportModule" -Level Error
-                    $backupInfo['ReportPath'] = $null
-                    $backupInfo['ReportSigned'] = $false
-                }
-            }
-            catch {
-                Write-Log -Message "Failed to generate report: $_" -Level Error
-                $backupInfo['ReportPath'] = $null
-                $backupInfo['ReportSigned'] = $false
-            }
+            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
+            Import-Module $reportHelperModule -Force
+            
+            $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             
             return [PSCustomObject]$backupInfo
         }

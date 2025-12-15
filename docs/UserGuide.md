@@ -95,7 +95,7 @@ Creates a complete backup of all files in the source directory.
 | `-SourcePath` | Yes | - | The directory to backup |
 | `-DestinationPath` | No | From config | Where to store the backup |
 | `-BackupName` | No | Auto-generated | Custom name for the backup |
-| `-BackupType` | No | `Full` | Type: `Full`, `Incremental`, or `Differential` |
+| `-BackupType` | No | `Full` | Type: `Full` or `Incremental` |
 | `-ReportFormat` | No | `JSON` | Report format: `JSON`, `HTML`, or `CSV` |
 | `-ReportOutputPath` | No | `.\reports` | Where to save the report |
 | `-Compress` | No | `false` | Compress backup to ZIP |
@@ -519,6 +519,32 @@ Every report is automatically signed with SHA256 hash:
 ```
 Weekly:  Full Backup (Sunday 03:00)
 Daily:   Incremental Backup (02:00)
+```
+
+**Directory Organization:**
+
+FileGuardian expects each backup source to have its own dedicated backup directory. This ensures proper state tracking and integrity verification.
+
+**Correct Structure:**
+```
+D:\Backups\
+  ├── ProjectA\
+  │   ├── ProjectA_20251201_120000\
+  │   ├── ProjectA_20251202_120000\
+  │   └── ProjectA_20251203_120000\
+  └── ProjectB\
+      ├── ProjectB_20251201_120000\
+      ├── ProjectB_20251202_120000\
+      └── ProjectB_20251203_120000\
+```
+
+**Incorrect - Mixed Sources:**
+```
+D:\Backups\
+  ├── ProjectA_20251201_120000\
+  ├── ProjectB_20251201_120000\
+  ├── ProjectA_20251202_120000\
+  └── ProjectB_20251202_120000\
 ```
 
 ### Security

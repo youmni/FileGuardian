@@ -1,0 +1,98 @@
+function Initialize-BackupConfiguration {
+    <#
+    .SYNOPSIS
+        Loads and initializes backup configuration with parameter overrides.
+    
+    .DESCRIPTION
+        Helper function that loads configuration from file and applies parameter overrides.
+        Returns a configuration object with all necessary settings for backup operations.
+    
+    .PARAMETER ConfigPath
+        Path to the configuration file.
+    
+    .PARAMETER DestinationPath
+        Override for destination path from config.
+    
+    .PARAMETER Compress
+        Override for compression setting from config.
+    
+    .PARAMETER ExcludePatterns
+        Override for exclusion patterns from config.
+    
+    .PARAMETER BoundParameters
+        The $PSBoundParameters from the calling function.
+    
+    .OUTPUTS
+        PSCustomObject with resolved configuration values.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [string]$ConfigPath,
+        
+        [Parameter()]
+        [string]$DestinationPath,
+        
+        [Parameter()]
+        [bool]$Compress,
+        
+        [Parameter()]
+        [string[]]$ExcludePatterns,
+        
+        [Parameter()]
+        [hashtable]$BoundParameters
+    )
+    
+    # Import Read-Config module
+    $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.psm1"
+    Import-Module $configModule -Force
+    
+    # Load configuration
+    try {
+        $config = if ($ConfigPath) {
+            Read-Config -ConfigPath $ConfigPath
+        } else {
+            Read-Config -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log -Message "Could not load config file: $_. Using parameters only." -Level Warning
+        $config = $null
+    }
+    
+    # Apply config defaults for destination if not specified
+    if (-not $DestinationPath) {
+        if ($config -and $config.BackupSettings.DestinationPath) {
+            $DestinationPath = $config.BackupSettings.DestinationPath
+            Write-Verbose "Using DestinationPath from config: $DestinationPath"
+        }
+        else {
+            throw "DestinationPath is required. Specify it as a parameter or in the config file."
+        }
+    }
+    
+    # Use config for compression if not explicitly specified
+    if (-not $BoundParameters.ContainsKey('Compress') -and $config -and $config.BackupSettings.CompressBackups) {
+        $Compress = $config.BackupSettings.CompressBackups
+        Write-Verbose "Using Compress setting from config: $Compress"
+    }
+    
+    # Use config for exclusion patterns if not specified
+    if (-not $ExcludePatterns -and $config -and $config.BackupSettings.ExcludePatterns) {
+        $ExcludePatterns = $config.BackupSettings.ExcludePatterns
+        Write-Verbose "Using ExcludePatterns from config: $($ExcludePatterns -join ', ')"
+    }
+    
+    if (-not $ExcludePatterns) {
+        $ExcludePatterns = @()
+    }
+    
+    return [PSCustomObject]@{
+        DestinationPath = $DestinationPath
+        Compress = $Compress
+        ExcludePatterns = $ExcludePatterns
+        Config = $config
+    }
+}
+
+Export-ModuleMember -Function Initialize-BackupConfiguration
