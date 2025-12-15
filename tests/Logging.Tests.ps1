@@ -1,57 +1,20 @@
 BeforeAll {
-    # Set project root and config path FIRST
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
-    $configPath = Join-Path $ProjectRoot "config/backup-config.json"
-    $backupConfig = $null
-    $originalConfig = $null
-    # Patch config/backup-config.json tijdelijk zodat LogDirectory naar test_logs wijst
-    if (Test-Path $configPath) {
-        $originalConfig = Get-Content $configPath -Raw
-        $backupConfig = $originalConfig | ConvertFrom-Json
-        $backupConfig.GlobalSettings.LogDirectory = Join-Path $TestDrive "test_logs"
-        $backupConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath
-    }
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
-
-    # Import the logging module
     Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
-
-    # Helper function to get test log directory
-    function script:Get-TestLogDir {
-        return Join-Path $TestDrive "test_logs"
-    }
-
-    # Helper function to get test log path
-    function script:Get-TestLogPath {
-        $dateStamp = Get-Date -Format "yyyyMMdd"
-        $logDir = Get-TestLogDir
-        return Join-Path $logDir "fileguardian_$dateStamp.log"
-    }
 }
 
 Describe "Write-Log" {
     BeforeEach {
-        $script:TestLogDir = Get-TestLogDir
-        
-        # Create test log directory
-        if (-not (Test-Path $script:TestLogDir)) {
-            New-Item -Path $script:TestLogDir -ItemType Directory -Force | Out-Null
+        $actualLogDir = Join-Path $ProjectRoot "logs"
+        if (-not (Test-Path $actualLogDir)) {
+            New-Item -Path $actualLogDir -ItemType Directory -Force | Out-Null
         }
-        
-        # Override the log directory in the module by mocking the path resolution
-        # We'll redirect log output to test directory
-        $script:OriginalLogDir = Join-Path $script:LoggingModulePath "..\..\..\logs"
-        $script:TestLogPath = Get-TestLogPath
     }
-    
     AfterEach {
-            # Herstel originele config/backup-config.json na elke test
-            if ($originalConfig) {
-                Set-Content -Path $configPath -Value $originalConfig
-            }
-        # Clean up test logs
-        if (Test-Path $script:TestLogDir) {
-            Remove-Item -Path $script:TestLogDir -Recurse -Force -ErrorAction SilentlyContinue
+        $actualLogDir = Join-Path $ProjectRoot "logs"
+        if (Test-Path $actualLogDir) {
+            Remove-Item -Path $actualLogDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     
@@ -285,15 +248,15 @@ Describe "Write-Log" {
 
 Describe "Write-Log Performance" {
     BeforeEach {
-        $script:TestLogDir = Get-TestLogDir
-        if (-not (Test-Path $script:TestLogDir)) {
-            New-Item -Path $script:TestLogDir -ItemType Directory -Force | Out-Null
+        $actualLogDir = Join-Path $ProjectRoot "logs"
+        if (-not (Test-Path $actualLogDir)) {
+            New-Item -Path $actualLogDir -ItemType Directory -Force | Out-Null
         }
     }
-    
     AfterEach {
-        if (Test-Path $script:TestLogDir) {
-            Remove-Item -Path $script:TestLogDir -Recurse -Force -ErrorAction SilentlyContinue
+        $actualLogDir = Join-Path $ProjectRoot "logs"
+        if (Test-Path $actualLogDir) {
+            Remove-Item -Path $actualLogDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     
