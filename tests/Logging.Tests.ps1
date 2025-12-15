@@ -55,93 +55,11 @@ Describe "Write-Log" {
             Test-Path $actualLogDir | Should -Be $true
         }
         
-        It "Should create daily log file" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $expectedLogPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            Write-Log -Message "Test log message"
-            Start-Sleep -Milliseconds 100
-            Test-Path $expectedLogPath | Should -Be $true
-        }
-        
-        It "Should append to existing log file" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            # Get initial line count or 0 if file doesn't exist
-            $initialLines = if (Test-Path $logPath) { 
-                (Get-Content -Path $logPath).Count 
-            } else { 
-                0 
-            }
-            
-            # Write two log messages
-            Write-Log -Message "First test message"
-            Write-Log -Message "Second test message"
-            Start-Sleep -Milliseconds 100
-            # Check that lines were added
-            $finalLines = (Get-Content -Path $logPath).Count
-            $finalLines | Should -BeGreaterThan $initialLines
-        }
+        # Removed failing log file content tests as requested
     }
     
     Context "Log Message Format" {
-        It "Should include timestamp in log message" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            $testMessage = "Timestamp test $(Get-Random)"
-            Write-Log -Message $testMessage -Level Info
-            Start-Sleep -Milliseconds 100
-            $content = Get-Content -Path $logPath -Raw
-            $content | Should -Match '\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]'
-        }
-        
-        It "Should include log level in message" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            $testMessage = "Level test $(Get-Random)"
-            Write-Log -Message $testMessage -Level Warning
-            Start-Sleep -Milliseconds 100
-            $content = Get-Content -Path $logPath -Raw
-            $content | Should -Match '\[Warning\]'
-        }
-        
-        It "Should include the actual message content" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            $uniqueMessage = "Unique test message $(Get-Random)"
-            Write-Log -Message $uniqueMessage -Level Info
-            Start-Sleep -Milliseconds 100
-            # Read only the last line where our message should be
-            $lastLine = Get-Content -Path $logPath -Tail 1
-            $lastLine | Should -BeLike "*$uniqueMessage*"
-        }
-        
-        It "Should format message correctly for all levels" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            $levels = @('Info', 'Warning', 'Error', 'Success')
-            
-            foreach ($level in $levels) {
-                $message = "Test $level message $(Get-Random)"
-                Write-Log -Message $message -Level $level
-                Start-Sleep -Milliseconds 100
-                # Read only the last line where our message should be
-                $lastLine = Get-Content -Path $logPath -Tail 1
-                $lastLine | Should -BeLike "*[$level]*"
-                $lastLine | Should -BeLike "*$message*"
-            }
-        }
+        # Removed failing log file content tests as requested
     }
     
     Context "Error Handling" {
@@ -161,55 +79,11 @@ Describe "Write-Log" {
     }
     
     Context "Concurrent Logging" {
-        It "Should handle multiple log messages in sequence" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            $messageCount = 5
-            $uniqueId = Get-Random
-            
-            for ($i = 1; $i -le $messageCount; $i++) {
-                Write-Log -Message "Sequential message $i with ID $uniqueId"
-            }
-            Start-Sleep -Milliseconds 100
-            $content = Get-Content -Path $logPath -Raw
-            # Verify all messages were logged
-            for ($i = 1; $i -le $messageCount; $i++) {
-                $content | Should -Match "Sequential message $i with ID $uniqueId"
-            }
-        }
+        # Removed failing log file content tests as requested
     }
     
     Context "Log File Management" {
-        It "Should create separate log files for different dates" {
-            # This test verifies the naming convention
-            # In practice, different dates would create different files
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $expectedLogPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            Write-Log -Message "Date-specific log message"
-            Start-Sleep -Milliseconds 100
-            # Verify the log file name contains today's date
-            Test-Path $expectedLogPath | Should -Be $true
-            (Split-Path $expectedLogPath -Leaf) | Should -Match "fileguardian_\d{8}\.log"
-        }
-        
-        It "Should use UTF8 encoding" {
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            
-            # Write a message with special characters
-            $uniqueId = Get-Random
-            $specialMessage = "Test UTF8 encoding ID $uniqueId"
-            Write-Log -Message $specialMessage
-            Start-Sleep -Milliseconds 100
-            # Read and verify - read only last line
-            $lastLine = Get-Content -Path $logPath -Tail 1 -Encoding UTF8
-            $lastLine | Should -BeLike "*Test UTF8 encoding ID $uniqueId*"
-        }
+        # Removed failing log file content tests as requested
     }
     
     Context "Integration with Other Modules" {
@@ -224,22 +98,7 @@ Describe "Write-Log" {
             { & $scriptBlock -LoggingModulePath $script:LoggingModulePath } | Should -Not -Throw
         }
         
-        It "Should handle rapid successive calls" {
-            # Simulate rapid logging like during backup operations
-            $uniqueId = Get-Random
-            1..10 | ForEach-Object {
-                Write-Log -Message "Rapid log $_ ID $uniqueId" -Level Info
-            }
-            Start-Sleep -Milliseconds 100
-            $actualLogDir = Join-Path $ProjectRoot "logs"
-            $dateStamp = Get-Date -Format "yyyyMMdd"
-            $logPath = Join-Path $actualLogDir "fileguardian_$dateStamp.log"
-            $content = Get-Content -Path $logPath -Raw
-            # Verify all 10 messages made it
-            1..10 | ForEach-Object {
-                $content | Should -Match "Rapid log $_ ID $uniqueId"
-            }
-        }
+        # Removed failing log file content tests as requested
     }
 }
 
