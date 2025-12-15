@@ -6,9 +6,10 @@ BeforeAll {
     # Import Logging module first (dependency)
     Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
     
-    # Import other modules
-    Import-Module (Join-Path $script:BackupModulePath "Compress-Backup.psm1") -Force
-    Import-Module (Join-Path $script:BackupModulePath "Invoke-FullBackup.psm1") -Force
+    # Import all Backup module .psm1 files (helpers and public)
+    Get-ChildItem -Path $script:BackupModulePath -Filter '*.psm1' | ForEach-Object {
+        Import-Module $_.FullName -Force
+    }
     Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force
     
     # Define helper function in BeforeAll scope
