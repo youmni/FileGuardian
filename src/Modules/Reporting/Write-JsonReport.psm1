@@ -61,6 +61,16 @@ function Write-JsonReport {
                 New-Item -Path $reportDir -ItemType Directory -Force | Out-Null
             }
             
+            # Calculate duration string
+            $durationString = "N/A"
+            if ($BackupInfo.Duration) {
+                if ($BackupInfo.Duration -is [TimeSpan]) {
+                    $durationString = $BackupInfo.Duration.ToString()
+                } else {
+                    $durationString = $BackupInfo.Duration.ToString()
+                }
+            }
+            
             # Build comprehensive report
             $report = [PSCustomObject]@{
                 ReportMetadata = [PSCustomObject]@{
@@ -72,7 +82,7 @@ function Write-JsonReport {
                     BackupName = $BackupInfo.BackupName
                     Type = $BackupInfo.Type
                     Timestamp = $BackupInfo.Timestamp
-                    Duration = if ($BackupInfo.Duration) { $BackupInfo.Duration.ToString() } else { $null }
+                    Duration = $durationString
                     Success = $true
                 }
                 Paths = [PSCustomObject]@{
@@ -81,10 +91,16 @@ function Write-JsonReport {
                 }
                 Statistics = [PSCustomObject]@{
                     FilesBackedUp = $BackupInfo.FilesBackedUp
+                    FilesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+                    FilesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+                    FilesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
                     TotalSizeMB = $BackupInfo.TotalSizeMB
                     Compressed = $BackupInfo.Compressed
                     CompressedSizeMB = $BackupInfo.CompressedSizeMB
                     CompressionRatio = $BackupInfo.CompressionRatio
+                }
+                Changes = [PSCustomObject]@{
+                    DeletedFiles = if ($BackupInfo.DeletedFiles) { $BackupInfo.DeletedFiles } else { @() }
                 }
                 Integrity = [PSCustomObject]@{
                     StateSaved = $BackupInfo.IntegrityStateSaved

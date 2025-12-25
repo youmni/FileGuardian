@@ -1,3 +1,25 @@
+# Ensure nested helper modules are loaded into this module's scope so
+# internal calls (e.g., Invoke-FullBackup) are available to Invoke-FileGuardian.
+# This keeps those helpers internal while allowing only `Invoke-FileGuardian`
+# to be exported from the manifest.
+try {
+    $moduleDir = $PSScriptRoot
+    $modulesPath = Join-Path $moduleDir 'Modules'
+    if (Test-Path $modulesPath) {
+        Get-ChildItem -Path $modulesPath -Recurse -Filter '*.psm1' -File | ForEach-Object {
+            try {
+                Import-Module -Name $_.FullName -Force -ErrorAction Stop
+            }
+            catch {
+                Write-Verbose "Failed to import nested module '$($_.FullName)': $_"
+            }
+        }
+    }
+}
+catch {
+    Write-Verbose "Error while loading nested modules: $_"
+}
+
 function Invoke-FileGuardian {
     <#
     .SYNOPSIS

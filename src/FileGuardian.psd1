@@ -43,9 +43,6 @@
     # Invoke-FileGuardian is the main public API; other exports are for internal use by FileGuardian.ps1 and tooling scripts
     FunctionsToExport = @(
         'Invoke-FileGuardian',
-        'Invoke-BackupRetention',
-        'Test-BackupIntegrity',
-        'Confirm-ReportSignature',
         'Write-Log'
     )
 

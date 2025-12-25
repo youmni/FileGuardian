@@ -116,8 +116,31 @@ function Write-HtmlReport {
                 $corruptionHtml += "</div>"
             }
             
-            $verificationSummary = if ($BackupInfo.PreviousBackupsVerified) {
-                "$($BackupInfo.VerifiedBackupsOK) OK, $($BackupInfo.CorruptedBackups.Count) Corrupted (Total: $($BackupInfo.PreviousBackupsVerified) verified)"
+            $reportVersion = "1.0"
+            $generator = "FileGuardian"
+            $generatedAtIso = Get-Date -Format "o"
+
+            $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+            $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+            $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+
+            $deletedFilesHtml = ""
+            if ($BackupInfo.DeletedFiles -and $BackupInfo.DeletedFiles.Count -gt 0) {
+                $deletedFilesHtml = "<ul style='margin-top:8px'>"
+                foreach ($d in $BackupInfo.DeletedFiles) {
+                    $deletedFilesHtml += "<li>" + [System.Web.HttpUtility]::HtmlEncode($d) + "</li>"
+                }
+                $deletedFilesHtml += "</ul>"
+            } else {
+                $deletedFilesHtml = "<div class='value'>None</div>"
+            }
+
+            $totalVerified = if ($BackupInfo.PreviousBackupsVerified) { $BackupInfo.PreviousBackupsVerified } else { 0 }
+            $verifiedOK = if ($BackupInfo.VerifiedBackupsOK) { $BackupInfo.VerifiedBackupsOK } else { 0 }
+            $corruptedCount = if ($BackupInfo.CorruptedBackups) { $BackupInfo.CorruptedBackups.Count } else { 0 }
+
+            $verificationSummary = if ($totalVerified -gt 0) {
+                "$verifiedOK OK, $corruptedCount Corrupted (Total: $totalVerified verified)"
             } else {
                 "No previous backups to verify"
             }
@@ -392,6 +415,18 @@ function Write-HtmlReport {
                         <label>Status</label>
                         <div class="value"><span class="status-success">Success</span></div>
                     </div>
+                            <div class="info-item">
+                                <label>Report Generated (ISO)</label>
+                                <div class="value">$generatedAtIso</div>
+                            </div>
+                            <div class="info-item">
+                                <label>Report Version</label>
+                                <div class="value">$reportVersion</div>
+                            </div>
+                            <div class="info-item">
+                                <label>Generator</label>
+                                <div class="value">$generator</div>
+                            </div>
                 </div>
             </div>
             
@@ -433,6 +468,29 @@ function Write-HtmlReport {
                     <div class="stat-card">
                         <span class="stat-number">$compressionRatio</span>
                         <span class="stat-label">Compression Ratio</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">$filesChanged</span>
+                        <span class="stat-label">Files Changed</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">$filesNew</span>
+                        <span class="stat-label">Files New</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">$filesDeleted</span>
+                        <span class="stat-label">Files Deleted</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Changes Section -->
+            <div class="section">
+                <h2>Changes</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Deleted Files</label>
+                        $deletedFilesHtml
                     </div>
                 </div>
             </div>
