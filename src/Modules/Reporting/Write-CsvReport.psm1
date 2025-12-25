@@ -63,7 +63,17 @@ function Write-CsvReport {
             
             # Prepare data for CSV
             $generatedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $duration = if ($BackupInfo.Duration) { $BackupInfo.Duration.ToString() } else { "N/A" }
+            
+            # Duration handling
+            $duration = "N/A"
+            if ($BackupInfo.Duration) {
+                if ($BackupInfo.Duration -is [TimeSpan]) {
+                    $duration = $BackupInfo.Duration.ToString()
+                } else {
+                    $duration = $BackupInfo.Duration.ToString()
+                }
+            }
+            
             $compressed = if ($BackupInfo.Compressed) { "Yes" } else { "No" }
             $compressedSize = if ($BackupInfo.Compressed -and $BackupInfo.CompressedSizeMB) { 
                 $BackupInfo.CompressedSizeMB
@@ -80,6 +90,17 @@ function Write-CsvReport {
                 Join-Path $BackupInfo.DestinationPath "states" 
             } else { 
                 "N/A" 
+            }
+            
+            # File change statistics
+            $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+            $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+            $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+            
+            # Deleted files list (concatenate into string)
+            $deletedFilesList = "None"
+            if ($filesDeleted -gt 0 -and $BackupInfo.DeletedFiles) {
+                $deletedFilesList = ($BackupInfo.DeletedFiles -join "; ")
             }
             
             # Build CSV data object
@@ -102,10 +123,16 @@ function Write-CsvReport {
                 
                 # Statistics
                 FilesBackedUp = $BackupInfo.FilesBackedUp
+                FilesChanged = $filesChanged
+                FilesNew = $filesNew
+                FilesDeleted = $filesDeleted
                 TotalSizeMB = $BackupInfo.TotalSizeMB
                 Compressed = $compressed
                 CompressedSizeMB = $compressedSize
                 CompressionRatio = $compressionRatio
+                
+                # Changes
+                DeletedFilesList = $deletedFilesList
                 
                 # Integrity
                 IntegrityStateSaved = $integrityStateSaved
