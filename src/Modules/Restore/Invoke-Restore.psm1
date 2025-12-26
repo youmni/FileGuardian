@@ -10,9 +10,17 @@ function Invoke-Restore {
         Destination directory where files will be restored.
     #>
     param(
-        [Parameter(Mandatory=$true)][array]$Chain,
-        [Parameter(Mandatory=$true)][string]$RestoreDirectory
+        [array]$Chain,
+        [string]$RestoreDirectory
     )
+
+    if ($null -eq $Chain -or ($Chain -is [array] -and $Chain.Count -eq 0)) {
+        throw "Parameter 'Chain' is required and must be a non-empty array."
+    }
+
+    if (-not $RestoreDirectory) {
+        throw "Parameter 'RestoreDirectory' is required."
+    }
 
     # Ensure the restore directory exists and is writable
     if (-not (Test-Path $RestoreDirectory)) {
