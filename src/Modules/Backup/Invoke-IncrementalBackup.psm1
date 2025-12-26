@@ -169,9 +169,12 @@ function Invoke-IncrementalBackup {
             
             Write-Log -Message "Previous state: $($previousState.FileCount) files, last backup at $($previousState.Timestamp)" -Level Info
             
-            # Get current state of source files
+            # Get current state of source files (heavy operation)
             Write-Log -Message "Scanning source directory and calculating hashes..." -Level Info
+            Write-Progress -Activity "Hashing files" -Status "Calculating hashes..." -PercentComplete 0
             $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse
+            Write-Progress -Activity "Hashing files" -Completed
+            Write-Log -Message "Calculated current hashes: $($currentFiles.Count) files" -Level Info
             
             # Apply exclusions to current files
             if ($ExcludePatterns.Count -gt 0) {
@@ -261,24 +264,28 @@ function Invoke-IncrementalBackup {
             foreach ($file in $filesToBackup) {
                 $targetPath = Join-Path $finalDestination $file.RelativePath
                 $targetDir = Split-Path $targetPath -Parent
-                
+
                 if (-not (Test-Path $targetDir)) {
                     New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
                 }
-                
+
                 Copy-Item -Path $file.Path -Destination $targetPath -Force
                 $copiedFiles++
-                
+
                 if ($copiedFiles % 50 -eq 0) {
+                    $percent = if ($totalFiles -gt 0) { [math]::Round(($copiedFiles / $totalFiles) * 100, 0) } else { 100 }
                     Write-Verbose "Progress: $copiedFiles / $totalFiles files copied"
+                    Write-Progress -Activity "Backing up" -Status "Copied $copiedFiles of $totalFiles" -PercentComplete $percent
                 }
             }
+            Write-Progress -Activity "Backing up" -Completed
             
             Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
             
             # Save backup metadata for integrity verification BEFORE compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp
+            Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
             
             # Handle compression or return direct copy info
             if ($Compress) {
@@ -336,12 +343,18 @@ function Invoke-IncrementalBackup {
             
             # Always save integrity state (update to reflect current state)
             $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
+            if ($backupInfo['IntegrityStateSaved']) {
+                Write-Log -Message "Integrity state saved for backup" -Level Info
+            } else {
+                Write-Log -Message "Integrity state NOT saved for backup" -Level Warning
+            }
             
             # Verify previous backups integrity
             $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
+            Write-Log -Message "Previous backups verification: Checked $($verificationResult.VerifiedCount), Corrupted $($verificationResult.CorruptedBackups.Count)" -Level Info
             
             # Generate report (ALWAYS - this is mandatory)
             $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
