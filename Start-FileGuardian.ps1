@@ -25,7 +25,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet('Backup', 'Verify', 'Report')]
+    [ValidateSet('Backup', 'Verify', 'Report', 'Restore')]
     [string]$Action,
     
     [Parameter()]
@@ -49,6 +49,12 @@ param(
     
     [Parameter()]
     [string]$BackupName,
+
+    [Parameter()]
+    [string]$BackupDirectory,
+
+    [Parameter()]
+    [string]$RestoreDirectory,
     
     [Parameter()]
     [ValidateSet('JSON', 'HTML', 'CSV')]
@@ -86,7 +92,6 @@ try {
         Action = $Action
     }
     
-    # Add optional parameters only if they were provided
     if ($PSBoundParameters.ContainsKey('SourcePath')) { $params.SourcePath = $SourcePath }
     if ($PSBoundParameters.ContainsKey('DestinationPath')) { $params.DestinationPath = $DestinationPath }
     if ($PSBoundParameters.ContainsKey('BackupType')) { $params.BackupType = $BackupType }
@@ -94,6 +99,8 @@ try {
     if ($PSBoundParameters.ContainsKey('ReportPath')) { $params.ReportPath = $ReportPath }
     if ($PSBoundParameters.ContainsKey('ReportOutputPath')) { $params.ReportOutputPath = $ReportOutputPath }
     if ($PSBoundParameters.ContainsKey('BackupName')) { $params.BackupName = $BackupName }
+    if ($PSBoundParameters.ContainsKey('BackupDirectory')) { $params.BackupDirectory = $BackupDirectory }
+    if ($PSBoundParameters.ContainsKey('RestoreDirectory')) { $params.RestoreDirectory = $RestoreDirectory }
     if ($PSBoundParameters.ContainsKey('ReportFormat')) { $params.ReportFormat = $ReportFormat }
     if ($PSBoundParameters.ContainsKey('ConfigPath')) { $params.ConfigPath = $ConfigPath }
     if ($PSBoundParameters.ContainsKey('Compress')) { $params.Compress = $true }

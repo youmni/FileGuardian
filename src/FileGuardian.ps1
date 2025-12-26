@@ -33,37 +33,70 @@ function Invoke-FileGuardian {
         user experience compared to calling individual module functions.
     
     .PARAMETER Action
-        The action to perform: Backup, Verify and Report
-    
+        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore'.
+        - 'Backup': create a backup of `SourcePath` to the configured destination.
+        - 'Verify': check integrity of a specific `BackupPath`.
+        - 'Report': validate the digital signature of a report at `ReportPath`.
+        - 'Restore': restore files from backups found in `BackupDirectory` to `RestoreDirectory`.
+
     .PARAMETER SourcePath
-        Source directory or file to backup (required for Backup action).
-    
+        Path to the source directory or file to include in a backup (required for
+        `Action = 'Backup'`). Accepts absolute or relative paths. The path must exist.
+
     .PARAMETER DestinationPath
-        Destination directory for backups. If not specified, uses config file.
-    
+        Optional destination directory where backups will be stored. If omitted the
+        destination defined in the configuration (`ConfigPath` or default config)
+        will be used.
+
     .PARAMETER BackupType
-        Type of backup: Full, Incremental, Differential. Default: Full
-    
+        Backup mode to run: 'Full' or 'Incremental'. Default is 'Full'. Use 'Incremental'
+        only when a valid previous full backup is available in the destination.
+
     .PARAMETER BackupPath
-        Path to backup to verify (required for Verify action).
-    
+        Exact path to a single backup snapshot (used with `Action = 'Verify'`).
+        Provide the path to the backup folder you want integrity-checked.
+
+    .PARAMETER BackupDirectory
+        Path to the folder that contains one or more FileGuardian backup folders
+        (required for `Action = 'Restore'`). Can be a backups root (containing
+        multiple dated backup folders) or a specific backup folder. When restoring,
+        the code selects the most recent full backup in this directory and then
+        applies any incremental backups with timestamps newer than that full.
+
+    .PARAMETER RestoreDirectory
+        Target directory where files will be restored (required for `Action = 'Restore'`).
+        The directory will be created if it does not exist; ensure the running account
+        has write permission. Existing files may be overwritten by the restore.
+
     .PARAMETER ReportPath
-        Path to report file to verify signature (required for Report action).
-    
+        Path to a generated report file whose digital signature should be validated
+        (used with `Action = 'Report'`). The file must exist.
+
+    .PARAMETER ReportOutputPath
+        When performing a backup, the path (including filename) where the generated
+        report will be written. This path does not need to exist beforehand.
+
     .PARAMETER BackupName
-        Custom name for the backup. Defaults to auto-generated timestamp.
-    
+        Optional user-specified name for the backup. If omitted a timestamped name
+        will be generated automatically.
+
     .PARAMETER ConfigPath
-        Path to configuration file. Defaults to config/backup-config.json
-    
+        Path to a JSON configuration file. If not provided the module will use
+        'config/backup-config.json' relative to the script root.
+
     .PARAMETER Compress
-        Compress the backup into a ZIP archive.
-    
+        Switch to compress the backup into an archive (ZIP). Use `-Compress` to enable.
+
     .PARAMETER ExcludePatterns
-        Array of file patterns to exclude (e.g., "*.tmp", "*.log").
-    
+        Array of wildcard patterns to exclude from the backup (for example
+        @('*.tmp','node_modules\**')). Patterns use PowerShell wildcard semantics.
+
+    .PARAMETER ReportFormat
+        Output format for generated reports: 'JSON', 'HTML', or 'CSV'. If omitted
+        the module default is used.
+
     .PARAMETER Quiet
-        Suppress console output (logs still written).
+        Suppress console informational and verbose output. Logging to files still occurs.
     
     .NOTES
         Reports are always generated and digitally signed for every backup.
@@ -91,7 +124,11 @@ function Invoke-FileGuardian {
     .EXAMPLE
         Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -ReportFormat HTML
         Full backup with HTML report format
-    
+
+    .EXAMPLE
+        Invoke-FileGuardian -Action Restore -BackupDirectory ".\backups\FileGuardian_20251225_164904" -RestoreDirectory "C:\RestoreTarget"
+        Restores the most recent full backup plus applicable incremental backups to the specified target directory.
+
     .NOTES
         This is the recommended way to use FileGuardian. All underlying modules
         are called automatically based on the specified action and parameters.
@@ -99,19 +136,27 @@ function Invoke-FileGuardian {
     [CmdletBinding(DefaultParameterSetName='Backup')]
     param(
         [Parameter(Mandatory=$true, Position=0)]
-        [ValidateSet('Backup', 'Verify', 'Report')]
-        [string]$Action,
+            [ValidateSet('Backup', 'Verify', 'Report', 'Restore')]
+            [string]$Action,
         
         # Backup parameters
         [Parameter(ParameterSetName='Backup', Mandatory=$true)]
         [ValidateScript({ Test-Path $_ })]
         [string]$SourcePath,
+
+        # Restore parameters
+        [Parameter(ParameterSetName='Restore', Mandatory=$true, Position=1)]
+        [ValidateScript({ Test-Path $_ })]
+        [string]$BackupDirectory,
+
+        [Parameter(ParameterSetName='Restore', Mandatory=$true, Position=2)]
+        [string]$RestoreDirectory,
         
         [Parameter(ParameterSetName='Backup')]
         [string]$DestinationPath,
         
         [Parameter(ParameterSetName='Backup')]
-        [ValidateSet('Full', 'Incremental', 'Differential')]
+        [ValidateSet('Full', 'Incremental')]
         [string]$BackupType = 'Full',
         
         # Verify backup parameters
@@ -128,7 +173,6 @@ function Invoke-FileGuardian {
         [Parameter(ParameterSetName='Backup')]
         [string]$ReportOutputPath,
         
-        # Common parameters
         [Parameter()]
         [string]$BackupName,
         
@@ -284,6 +328,47 @@ function Invoke-FileGuardian {
                     
                     # Return the result from Confirm-ReportSignature directly
                     return $result
+                }
+                'Restore' {
+                    Write-Log -Message "Starting restore operation..." -Level Info
+                    Write-Log -Message "BackupDirectory: $BackupDirectory" -Level Info
+                    Write-Log -Message "RestoreDirectory: $RestoreDirectory" -Level Info
+
+                    # Discover and normalize backups
+                    $resolved = Resolve-Backups -BackupDirectory $BackupDirectory
+                    if (-not $resolved -or $resolved.Count -eq 0) {
+                        throw "No backups found in BackupDirectory: $BackupDirectory"
+                    }
+
+                    # Find the most recent Full backup
+                    $fulls = $resolved | Where-Object { $_.Metadata.BackupType -and ($_.Metadata.BackupType -match 'Full') } | Sort-Object -Property Timestamp -Descending
+                    if (-not $fulls -or $fulls.Count -eq 0) {
+                        throw "No Full backup found in BackupDirectory: $BackupDirectory"
+                    }
+
+                    $latestFull = $fulls | Select-Object -First 1
+
+                    # Select incrementals occurring after the full
+                    $incrementals = $resolved |
+                        Where-Object { $_.Metadata.BackupType -and ($_.Metadata.BackupType -match 'Incremental') -and $_.Timestamp -gt $latestFull.Timestamp } |
+                        Sort-Object -Property Timestamp
+
+                    # Build restore chain: full then incrementals
+                    $chain = @()
+                    $chain += $latestFull
+                    if ($incrementals) { $chain += $incrementals }
+
+                    # Perform restore
+                    $success = Invoke-Restore -Chain $chain -RestoreDirectory $RestoreDirectory
+                    if ($success) {
+                        Write-Log -Message "Restore completed successfully" -Level Success
+                        $result = [PSCustomObject]@{
+                            RestoredFull = $latestFull.Path
+                            IncrementalsApplied = ($incrementals | Measure-Object).Count
+                            RestoredTo = $RestoreDirectory
+                        }
+                        return $result
+                    }
                 }
             }
         }
