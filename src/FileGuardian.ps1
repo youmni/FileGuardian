@@ -374,7 +374,6 @@ function Invoke-FileGuardian {
         }
         catch {
             Write-Log -Message "ERROR: $($_.Exception.Message)" -Level Error
-            Write-Log -Message "Stack trace: $($_.ScriptStackTrace)" -Level Error
             throw
         }
     }
