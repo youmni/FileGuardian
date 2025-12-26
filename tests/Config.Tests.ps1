@@ -1,5 +1,7 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
+    $LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging\Logging.psd1"
+    Import-Module $LoggingModulePath -Force
     $ModulePath = Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1"
     Import-Module $ModulePath -Force
 }
