@@ -70,6 +70,8 @@ function Compress-Backup {
         
         # Create the archive
         Compress-Archive -Path "$SourcePath\*" -DestinationPath $DestinationPath -CompressionLevel $CompressionLevel -Force
+        # Reset progress bar
+        Write-Progress -Activity "Compress-Archive" -Completed
         
         # Get compressed size
         $compressedSize = (Get-Item $DestinationPath).Length
