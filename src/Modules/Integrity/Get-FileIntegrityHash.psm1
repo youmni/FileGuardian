@@ -111,6 +111,8 @@ function Get-FileIntegrityHash {
                 
                 $totalFiles = $files.Count
                 Write-Verbose "Found $totalFiles files to process"
+                Write-Log -Message "Calculating $Algorithm hashes for $totalFiles files in $Path" -Level Info
+                Write-Progress -Activity "Hashing files" -Status "Starting..." -PercentComplete 0
                 
                 if ($totalFiles -eq 0) {
                     Write-Log -Message "No files found in: $Path" -Level Warning
@@ -144,10 +146,12 @@ function Get-FileIntegrityHash {
                         $results.Add($fileInfo)
                         
                         $processedCount++
-                        
-                        # Progress indication every 100 files
+
+                        # Progress indication every 100 files (and update progress UI)
                         if ($processedCount % 100 -eq 0) {
+                            $percent = if ($totalFiles -gt 0) { [math]::Round(($processedCount / $totalFiles) * 100, 0) } else { 100 }
                             Write-Verbose "Progress: $processedCount / $totalFiles files hashed"
+                            Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount of $totalFiles" -PercentComplete $percent
                         }
                     }
                     catch {
@@ -157,6 +161,7 @@ function Get-FileIntegrityHash {
                     }
                 }
                 
+                Write-Progress -Activity "Hashing files" -Completed
                 Write-Log -Message "Hashed $processedCount files successfully" -Level Info
                 
                 # Return results as array (sorted by RelativePath for consistency)
@@ -181,6 +186,7 @@ function Get-FileIntegrityHash {
                         LastWriteTime = $item.LastWriteTime
                     }
                     
+                    Write-Progress -Activity "Hashing files" -Completed
                     Write-Log -Message "Hashed single file successfully" -Level Info
                     
                     return $fileInfo

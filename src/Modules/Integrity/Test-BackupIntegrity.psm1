@@ -81,15 +81,18 @@ function Test-BackupIntegrity {
                 $isZip = $true
                 Write-Log -Message "Backup is compressed (ZIP). Extracting for verification..." -Level Info
                 Write-Verbose "Backup is a ZIP archive, extracting..."
-                
+
                 # Create temp directory for extraction
                 $tempExtractPath = Join-Path $env:TEMP "FileGuardian_Verify_$(Get-Date -Format 'yyyyMMddHHmmss')"
                 New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
-                
-                # Extract ZIP
+
+                # Show extraction progress stub and extract
+                Write-Progress -Activity "Extracting backup" -Status "Extracting archive..." -PercentComplete 0
                 Expand-Archive -Path $BackupPath -DestinationPath $tempExtractPath -Force
+                Write-Progress -Activity "Extracting backup" -Completed
+
                 $pathToVerify = $tempExtractPath
-                
+
                 Write-Log -Message "Extraction completed to temporary directory" -Level Info
                 Write-Verbose "Extracted to: $tempExtractPath"
             }
@@ -116,9 +119,12 @@ function Test-BackupIntegrity {
                 Write-Verbose "No metadata found, assuming Full backup"
             }
             
-            # Calculate current hashes for backup
-            Write-Verbose "Calculating current hashes for backup..."
+            # Calculate current hashes for backup (heavy operation)
+            Write-Log -Message "Calculating current hashes for backup: $absoluteBackupPath" -Level Info
+            Write-Progress -Activity "Verifying backup" -Status "Calculating hashes..." -PercentComplete 0
             $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -Recurse
+            Write-Progress -Activity "Verifying backup" -Completed
+            Write-Log -Message "Calculated current hashes: $($currentHashes.Count) files" -Level Info
             
             # Exclude metadata file from verification
             $currentHashes = $currentHashes | Where-Object { $_.RelativePath -ne ".backup-metadata.json" }

@@ -63,7 +63,7 @@ function Save-BackupMetadata {
         }
         
         $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $TargetPath -Encoding UTF8
-        Write-Verbose "Backup metadata saved: $TargetPath"
+        Write-Log -Message "Backup metadata saved: $TargetPath" -Level Info
         return $true
     }
     catch {

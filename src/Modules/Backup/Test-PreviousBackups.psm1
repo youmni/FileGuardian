@@ -75,6 +75,7 @@ function Test-PreviousBackups {
             foreach ($backup in $allBackups) {
                 try {
                     # Verify all backups in the destination folder
+                    Write-Log -Message "Verifying previous backup: $($backup.Name)" -Level Info
                     $verifyResult = Test-BackupIntegrity -BackupPath $backup.FullName
                     
                     if ($verifyResult -and -not $verifyResult.IsIntact) {
@@ -100,10 +101,11 @@ function Test-PreviousBackups {
                     }
                     else {
                         $verifiedBackups += $backup.Name
+                        Write-Log -Message "Verified previous backup OK: $($backup.Name)" -Level Info
                     }
                 }
                 catch {
-                    Write-Verbose "Could not verify backup: $($backup.Name) - $_"
+                    Write-Warning "Could not verify backup: $($backup.Name) - $_"
                 }
             }
         }

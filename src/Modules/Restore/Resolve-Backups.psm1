@@ -21,6 +21,23 @@ function Resolve-Backups {
             $info = Get-MetadataFromZip -ZipPath $c
             $meta = $info.Metadata
             if (-not $meta.BackupType -or -not $meta.Timestamp) { throw "Invalid metadata in zip backup: $c" }
+
+            # Normalize BackupType to canonical values and validate
+            try {
+                $rawType = $meta.BackupType.ToString()
+            } catch {
+                $rawType = [string]$meta.BackupType
+            }
+            $normalizedType = switch -Regex ($rawType.ToLowerInvariant()) {
+                '^full' { 'Full' }
+                '^inc'  { 'Incremental' }
+                default { $null }
+            }
+
+            if (-not $normalizedType) {
+                throw "Invalid BackupType '$rawType' in metadata for backup: $c. Expected one of: Full or Incremental."
+            }
+            $meta.BackupType = $normalizedType
             $ts = Convert-BackupTimestampToDateTime -Timestamp $meta.Timestamp
             $normalized += [PSCustomObject]@{
                 Path = $c
@@ -33,6 +50,23 @@ function Resolve-Backups {
         else {
             $meta = Get-MetadataFromFolder -FolderPath $c
             if (-not $meta.BackupType -or -not $meta.Timestamp) { throw "Invalid metadata in folder backup: $c" }
+
+            # Normalize BackupType to canonical values and validate
+            try {
+                $rawType = $meta.BackupType.ToString()
+            } catch {
+                $rawType = [string]$meta.BackupType
+            }
+            $normalizedType = switch -Regex ($rawType.ToLowerInvariant()) {
+                '^full' { 'Full' }
+                '^inc'  { 'Incremental' }
+                default { $null }
+            }
+
+            if (-not $normalizedType) {
+                throw "Invalid BackupType '$rawType' in metadata for backup: $c. Expected one of: Full or Incremental."
+            }
+            $meta.BackupType = $normalizedType
             $ts = Convert-BackupTimestampToDateTime -Timestamp $meta.Timestamp
             $normalized += [PSCustomObject]@{
                 Path = $c
