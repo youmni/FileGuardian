@@ -38,8 +38,8 @@
       "BackupType": "Incremental",
       "Schedule": {
         "Frequency": "Weekly",
-        "Time": "20:49",
-        "DaysOfWeek": ["Sunday"]
+        "Time": "15:41",
+        "DaysOfWeek": ["Saturday"]
       },
       "CompressBackups": false,
       "ExcludePatterns": ["*.tmp", "*.log", "*.cache"],

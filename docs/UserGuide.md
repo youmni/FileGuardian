@@ -30,25 +30,39 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 
 1. Open PowerShell in the FileGuardian directory
 
-2. Run your first backup with basic settings:
-   ```powershell
-      .\Start-FileGuardian.ps1 `
-       -Action Backup `
-       -SourcePath "C:\Users\Linus\Documents\Uni\3Bachelor\FileGuardian" `
-       -DestinationPath "D:\Linus\Backups\FileGuardian" `
-       -BackupName "FileGuardian" `
-       -ReportFormat HTML `
-       -ReportOutputPath "D:\Linus\Reports" `
-       -Compress
-   ```
+2. Load the FileGuardian script/module and run your first backup. You can either dot-source the script for local development or import it as a module.
+
+```powershell
+# Option A — dot-source (use while developing from the repo)
+. .\src\FileGuardian.ps1
+$backupParams = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Users\YourName\Documents\ProjectFiles'
+  DestinationPath = 'D:\Backups\Fileguardian'
+  BackupName = 'FileGuardian'
+  ReportFormat = 'HTML'
+  ReportOutputPath = 'D:\Reports'
+  Compress = $true
+}
+Invoke-FileGuardian @backupParams
+
+# Option B — if installed as a PowerShell module
+Import-Module FileGuardian
+$backupParams = @{
+  Action = 'Backup'
+  SourcePath = 'C:\...'
+  DestinationPath = 'D:\...'
+  BackupName = 'FileGuardian'
+}
+Invoke-FileGuardian @backupParams
+```
 
 **What This Does:**
-- Backs up all files from `C:\Users\Linus\Documents\Uni\3Bachelor\FileGuardian`
-- Stores backup in `D:\Linus\Backups\FileGuardian_[timestamp].zip`
-- Generates HTML report in `D:\Linus\Reports`
-- Compresses the backup
-- Tracks file integrity with SHA256 hashes
-- Automatically signs the report
+- Backs up files from the specified `-SourcePath`
+- Stores backup files in the configured `-DestinationPath` (timestamped)
+- Generates the requested report format in `-ReportOutputPath`
+- Optional `-Compress` creates compressed archives
+- Tracks file integrity with SHA256 hashes and signs reports
 
 ---
 
@@ -62,29 +76,33 @@ FileGuardian supports three types of backups, each with specific use cases.
 
 Creates a complete backup of all files in the source directory.
 
-**Basic Usage:**
+**Basic Usage (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Backup `
-    -SourcePath "C:\Users\YourName\Documents\ProjectFiles" `
-    -DestinationPath "D:\Backups\Projects" `
-    -BackupName "WeeklyFullBackup" `
-    -ReportFormat HTML `
-    -Compress
+$params = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Users\YourName\Documents\ProjectFiles'
+  DestinationPath = 'D:\Backups\Projects'
+  BackupName = 'WeeklyFullBackup'
+  ReportFormat = 'HTML'
+  Compress = $true
+}
+Invoke-FileGuardian @params
 ```
 
-**With All Options:**
+**With All Options (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Backup `
-    -SourcePath "C:\MyData" `
-    -DestinationPath "D:\Backups" `
-    -BackupName "MyProject" `
-    -BackupType Full `
-    -ReportFormat HTML `
-    -ReportOutputPath "D:\Reports" `
-    -Compress `
-    -ExcludePatterns "*.tmp","*.log","node_modules/**"
+$params = @{
+  Action = 'Backup'
+  SourcePath = 'C:\MyData'
+  DestinationPath = 'D:\Backups'
+  BackupName = 'MyProject'
+  BackupType = 'Full'
+  ReportFormat = 'HTML'
+  ReportOutputPath = 'D:\Reports'
+  Compress = $true
+  ExcludePatterns = @('*.tmp','*.log','node_modules/**')
+}
+Invoke-FileGuardian @params
 ```
 
 **Parameters:**
@@ -120,31 +138,35 @@ Creates a complete backup of all files in the source directory.
 
 Backs up only files that changed since the **last backup** (Full or Incremental).
 
-**Basic Usage:**
+**Basic Usage (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Backup `
-    -SourcePath "C:\Users\YourName\Documents\ProjectFiles" `
-    -DestinationPath "D:\Backups\Projects" `
-    -BackupName "DailyIncremental" `
-    -BackupType Incremental `
-    -ReportFormat HTML `
-    -ReportOutputPath "D:\Reports\Projects" `
-    -Compress
+$params = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Users\YourName\Documents\ProjectFiles'
+  DestinationPath = 'D:\Backups\Projects'
+  BackupName = 'DailyIncremental'
+  BackupType = 'Incremental'
+  ReportFormat = 'HTML'
+  ReportOutputPath = 'D:\Reports\Projects'
+  Compress = $true
+}
+Invoke-FileGuardian @params
 ```
 
-**Full Example with Exclusions:**
+**Full Example with Exclusions (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Backup `
-    -SourcePath "C:\Development\WebApp" `
-    -DestinationPath "D:\Backups\WebApp" `
-    -BackupName "WebApp-Daily" `
-    -BackupType Incremental `
-    -ReportFormat HTML `
-    -ReportOutputPath "D:\Reports\WebApp" `
-    -Compress `
-    -ExcludePatterns "node_modules/**","*.log",".git/**"
+$params = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Development\WebApp'
+  DestinationPath = 'D:\Backups\WebApp'
+  BackupName = 'WebApp-Daily'
+  BackupType = 'Incremental'
+  ReportFormat = 'HTML'
+  ReportOutputPath = 'D:\Reports\WebApp'
+  Compress = $true
+  ExcludePatterns = @('node_modules/**','*.log','.git/**')
+}
+Invoke-FileGuardian @params
 ```
 
 **When to Use:**
@@ -179,18 +201,16 @@ Friday:    Full Backup (104 files, 1.15GB)
 
 Verify the integrity of a backup by checking file hashes.
 
-**Verify Uncompressed Backup:**
+**Verify Uncompressed Backup (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Verify `
-    -BackupPath "D:\Backups\Projects\WeeklyFullBackup_20251214_150000"
+$verify = @{ Action = 'Verify'; BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000' }
+Invoke-FileGuardian @verify
 ```
 
-**Verify Compressed ZIP Backup:**
+**Verify Compressed ZIP Backup (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Verify `
-    -BackupPath "D:\Backups\WebApp\WebApp-Daily_20251214_020000.zip"
+$verify = @{ Action = 'Verify'; BackupPath = 'D:\Backups\WebApp\WebApp-Daily_20251214_020000.zip' }
+Invoke-FileGuardian @verify
 ```
 
 **Parameters:**
@@ -226,18 +246,16 @@ Verify the integrity of a backup by checking file hashes.
 
 Verify the digital signature of a backup report.
 
-**Verify HTML Report:**
+**Verify HTML Report (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Report `
-    -ReportPath "D:\Reports\Projects\WeeklyFullBackup_20251214_150000_20251214_150230_report.html"
+$r = @{ Action = 'Report'; ReportPath = 'D:\Reports\Projects\WeeklyFullBackup_20251214_150000_20251214_150230_report.html' }
+Invoke-FileGuardian @r
 ```
 
-**Verify JSON Report:**
+**Verify JSON Report (splatting):**
 ```powershell
-.\Start-FileGuardian.ps1 `
-    -Action Report `
-    -ReportPath "D:\Reports\WebApp\WebApp-Daily_20251214_020000_20251214_020145_report.json"
+$r = @{ Action = 'Report'; ReportPath = 'D:\Reports\WebApp\WebApp-Daily_20251214_020000_20251214_020145_report.json' }
+Invoke-FileGuardian @r
 ```
 
 **Parameters:**
@@ -260,6 +278,31 @@ Verify the digital signature of a backup report.
 ```
 
 ---
+
+### Cleanup Operations
+
+Manually trigger cleanup to remove old backups based on retention settings. The `Cleanup` action can read settings from the configuration for the named backup, or you can provide the directory and retention days explicitly.
+
+**Manual Cleanup Examples:**
+```powershell
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+}
+Invoke-FileGuardian @cleanupParams
+
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+  RetentionDays = 30
+  CleanupBackupDirectory = 'D:\Backups\Documents'
+}
+Invoke-FileGuardian @cleanupParams
+```
+
+**Notes:**
+- If `-CleanupBackupDirectory` is omitted, FileGuardian uses the backup path from `backup-config.json` for the named backup.
+- The `Cleanup` action returns a result object with properties such as `DeletedCount` and `FreedSpaceMB`.
 
 ## Scheduled Backups
 
@@ -345,17 +388,18 @@ Edit `config\backup-config.json` to define your scheduled backups:
 **Register All Scheduled Backups:**
 ```powershell
 # Run as Administrator!
-.\tools\Register-ScheduledTask.ps1
+# Create or update scheduled tasks from the config file
+Invoke-FileGuardian -Action Schedule -ConfigPath ".\config\backup-config.json"
 ```
 
 **Register Specific Backup:**
 ```powershell
-.\tools\Register-ScheduledTask.ps1 -BackupName "DailyDocuments"
+Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments"
 ```
 
 **Remove All Tasks:**
 ```powershell
-.\tools\Register-ScheduledTask.ps1 -Remove
+Invoke-FileGuardian -Action Schedule -Remove
 ```
 
 ### Important: Scheduling Best Practices
@@ -373,7 +417,7 @@ Edit `config\backup-config.json` to define your scheduled backups:
 
 **Remove Specific Task:**
 ```powershell
-.\tools\Register-ScheduledTask.ps1 -BackupName "DailyDocuments" -Remove
+Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments" -Remove
 ```
 
 ### Task Behavior
@@ -402,6 +446,31 @@ For each backup task, FileGuardian creates TWO scheduled tasks:
    - Removes old backups based on `RetentionDays` setting
    - Event-driven: only runs after successful backup
    - No manual intervention needed
+
+**Cleanup Action (manual use):**
+
+You can run cleanup manually or invoke the dedicated `Cleanup` action to remove old backups based on retention settings. If you do not pass explicit paths or retention days, FileGuardian will read the configuration file.
+
+**Manual Cleanup Example (from command line):**
+```powershell
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+}
+Invoke-FileGuardian @cleanupParams
+
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+  RetentionDays = 30
+  CleanupBackupDirectory = 'D:\Backups\Documents'
+}
+Invoke-FileGuardian @cleanupParams
+```
+
+**Notes:**
+- If `-CleanupBackupDirectory` is not provided, FileGuardian will use the directory configured for the named backup in `backup-config.json`.
+- The `Cleanup` action will return a result object describing `DeletedCount` and `FreedSpaceMB`.
 
 **How It Works:**
 ```
@@ -606,17 +675,21 @@ D:\Backups\
 
 **Example Configuration:**
 ```powershell
-# ProjectA backups
-.\Start-FileGuardian.ps1 -Action Backup `
-    -SourcePath "C:\Work\ProjectA" `
-    -DestinationPath "D:\Backups\ProjectA" `
-    -BackupName "ProjectA"
+$pA = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Work\ProjectA'
+  DestinationPath = 'D:\Backups\ProjectA'
+  BackupName = 'ProjectA'
+}
+Invoke-FileGuardian @pA
 
-# ProjectB backups
-.\Start-FileGuardian.ps1 -Action Backup `
-    -SourcePath "C:\Work\ProjectB" `
-    -DestinationPath "D:\Backups\ProjectB" `
-    -BackupName "ProjectB"
+$pB = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Work\ProjectB'
+  DestinationPath = 'D:\Backups\ProjectB'
+  BackupName = 'ProjectB'
+}
+Invoke-FileGuardian @pB
 ```
 
 ### Retention Management

@@ -1,7 +1,4 @@
-# Ensure nested helper modules are loaded into this module's scope so
-# internal calls (e.g., Invoke-FullBackup) are available to Invoke-FileGuardian.
-# This keeps those helpers internal while allowing only `Invoke-FileGuardian`
-# to be exported from the manifest.
+# Ensure nested helper modules are loaded into this module's scope
 try {
     $moduleDir = $PSScriptRoot
     $modulesPath = Join-Path $moduleDir 'Modules'
@@ -27,175 +24,151 @@ function Invoke-FileGuardian {
     
     .DESCRIPTION
         Main entry point for FileGuardian functionality. Supports backup operations,
-        integrity verification, and reporting through a single command interface.
-        
-        This command orchestrates all FileGuardian modules and provides a simplified
-        user experience compared to calling individual module functions.
+        integrity verification, reporting, scheduling, and cleanup through a single command interface.
     
     .PARAMETER Action
-        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore'.
-        - 'Backup': create a backup of `SourcePath` to the configured destination.
-        - 'Verify': check integrity of a specific `BackupPath`.
-        - 'Report': validate the digital signature of a report at `ReportPath`.
-        - 'Restore': restore files from backups found in `BackupDirectory` to `RestoreDirectory`.
-
-    .PARAMETER SourcePath
-        Path to the source directory or file to include in a backup (required for
-        `Action = 'Backup'`). Accepts absolute or relative paths. The path must exist.
-
-    .PARAMETER DestinationPath
-        Optional destination directory where backups will be stored. If omitted the
-        destination defined in the configuration (`ConfigPath` or default config)
-        will be used.
-
-    .PARAMETER BackupType
-        Backup mode to run: 'Full' or 'Incremental'. Default is 'Full'. Use 'Incremental'
-        only when a valid previous full backup is available in the destination.
-
-    .PARAMETER BackupPath
-        Exact path to a single backup snapshot (used with `Action = 'Verify'`).
-        Provide the path to the backup folder you want integrity-checked.
-
-    .PARAMETER BackupDirectory
-        Path to the folder that contains one or more FileGuardian backup folders
-        (required for `Action = 'Restore'`). Can be a backups root (containing
-        multiple dated backup folders) or a specific backup folder. When restoring,
-        the code selects the most recent full backup in this directory and then
-        applies any incremental backups with timestamps newer than that full.
-
-    .PARAMETER RestoreDirectory
-        Target directory where files will be restored (required for `Action = 'Restore'`).
-        The directory will be created if it does not exist; ensure the running account
-        has write permission. Existing files may be overwritten by the restore.
-
-    .PARAMETER ReportPath
-        Path to a generated report file whose digital signature should be validated
-        (used with `Action = 'Report'`). The file must exist.
-
-    .PARAMETER ReportOutputPath
-        When performing a backup, the path (including filename) where the generated
-        report will be written. This path does not need to exist beforehand.
-
-    .PARAMETER BackupName
-        Optional user-specified name for the backup. If omitted a timestamped name
-        will be generated automatically.
-
-    .PARAMETER ConfigPath
-        Path to a JSON configuration file. If not provided the module will use
-        'config/backup-config.json' relative to the script root.
-
-    .PARAMETER Compress
-        Switch to compress the backup into an archive (ZIP). Use `-Compress` to enable.
-
-    .PARAMETER ExcludePatterns
-        Array of wildcard patterns to exclude from the backup (for example
-        @('*.tmp','node_modules\**')). Patterns use PowerShell wildcard semantics.
-
-    .PARAMETER ReportFormat
-        Output format for generated reports: 'JSON', 'HTML', or 'CSV'. If omitted
-        the module default is used.
-
-    .PARAMETER Quiet
-        Suppress console informational and verbose output. Logging to files still occurs.
-    
-    .NOTES
-        Reports are always generated and digitally signed for every backup.
+        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup'.
     
     .EXAMPLE
         Invoke-FileGuardian -Action Backup -SourcePath "C:\Data"
-        Performs full backup using config file settings
     
     .EXAMPLE
-        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -BackupType Incremental -Compress
-        Performs compressed incremental backup
+        Invoke-FileGuardian -Action Schedule
     
     .EXAMPLE
-        Invoke-FileGuardian -Action Verify -BackupPath ".\backups\MyBackup_20251213_120000"
-        Verifies integrity of specified backup
+        Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments"
     
     .EXAMPLE
-        Invoke-FileGuardian -Action Report -ReportPath ".\reports\backup_report.json"
-        Verifies the digital signature of a backup report
-    
-    .EXAMPLE
-        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -DestinationPath "D:\Backups"
-        Full backup (reports are always signed)
-    
-    .EXAMPLE
-        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -ReportFormat HTML
-        Full backup with HTML report format
-
-    .EXAMPLE
-        Invoke-FileGuardian -Action Restore -BackupDirectory ".\backups\FileGuardian_20251225_164904" -RestoreDirectory "C:\RestoreTarget"
-        Restores the most recent full backup plus applicable incremental backups to the specified target directory.
-
-    .NOTES
-        This is the recommended way to use FileGuardian. All underlying modules
-        are called automatically based on the specified action and parameters.
+        Invoke-FileGuardian -Action Cleanup -BackupName "MyBackup"
     #>
-    [CmdletBinding(DefaultParameterSetName='Backup')]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0)]
-            [ValidateSet('Backup', 'Verify', 'Report', 'Restore')]
-            [string]$Action,
+        [ValidateSet('Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup')]
+        [string]$Action,
         
         # Backup parameters
-        [Parameter(ParameterSetName='Backup', Mandatory=$true)]
-        [ValidateScript({ Test-Path $_ })]
+        [Parameter(Mandatory=$false)]
+        [ValidateScript({ 
+            if ($Action -eq 'Backup' -and -not (Test-Path $_)) {
+                throw "Source path does not exist: $_"
+            }
+            $true
+        })]
         [string]$SourcePath,
 
         # Restore parameters
-        [Parameter(ParameterSetName='Restore', Mandatory=$true, Position=1)]
-        [ValidateScript({ Test-Path $_ })]
+        [Parameter(Mandatory=$false)]
+        [ValidateScript({ 
+            if ($Action -eq 'Restore' -and -not (Test-Path $_)) {
+                throw "Backup directory does not exist: $_"
+            }
+            $true
+        })]
         [string]$BackupDirectory,
 
-        [Parameter(ParameterSetName='Restore', Mandatory=$true, Position=2)]
+        [Parameter(Mandatory=$false)]
         [string]$RestoreDirectory,
         
-        [Parameter(ParameterSetName='Backup')]
+        # Cleanup parameters
+        [Parameter(Mandatory=$false)]
+        [string]$CleanupBackupDirectory,
+        
+        [Parameter(Mandatory=$false)]
         [string]$DestinationPath,
         
-        [Parameter(ParameterSetName='Backup')]
+        [Parameter(Mandatory=$false)]
         [ValidateSet('Full', 'Incremental')]
         [string]$BackupType = 'Full',
         
         # Verify backup parameters
-        [Parameter(ParameterSetName='Verify', Mandatory=$true)]
-        [ValidateScript({ Test-Path $_ })]
+        [Parameter(Mandatory=$false)]
+        [ValidateScript({ 
+            if ($Action -eq 'Verify' -and -not (Test-Path $_)) {
+                throw "Backup path does not exist: $_"
+            }
+            $true
+        })]
         [string]$BackupPath,
         
-        # Report path for verification (must exist)
-        [Parameter(ParameterSetName='Report', Mandatory=$true)]
-        [ValidateScript({ Test-Path $_ })]
+        # Report path for verification
+        [Parameter(Mandatory=$false)]
+        [ValidateScript({ 
+            if ($Action -eq 'Report' -and -not (Test-Path $_)) {
+                throw "Report path does not exist: $_"
+            }
+            $true
+        })]
         [string]$ReportPath,
         
-        # Report output path for backups (does not need to exist)
-        [Parameter(ParameterSetName='Backup')]
+        # Report output path for backups
+        [Parameter(Mandatory=$false)]
         [string]$ReportOutputPath,
         
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
         [string]$BackupName,
         
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
         [string]$ConfigPath,
         
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
         [switch]$Compress,
         
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
         [string[]]$ExcludePatterns,
         
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
         [ValidateSet('JSON', 'HTML', 'CSV')]
         [string]$ReportFormat,
         
-        [Parameter()]
+        # Schedule parameters
+        [Parameter(Mandatory=$false)]
+        [switch]$Remove,
+        
+        # Cleanup parameters
+        [Parameter(Mandatory=$false)]
+        [int]$RetentionDays,
+        
+        [Parameter(Mandatory=$false)]
         [switch]$Quiet
     )
     
     begin {
+        # Validate required parameters based on Action
+        switch ($Action) {
+            'Backup' {
+                if (-not $SourcePath) {
+                    throw "SourcePath is required for Backup action"
+                }
+            }
+            'Verify' {
+                if (-not $BackupPath) {
+                    throw "BackupPath is required for Verify action"
+                }
+            }
+            'Report' {
+                if (-not $ReportPath) {
+                    throw "ReportPath is required for Report action"
+                }
+            }
+            'Restore' {
+                if (-not $BackupDirectory) {
+                    throw "BackupDirectory is required for Restore action"
+                }
+                if (-not $RestoreDirectory) {
+                    throw "RestoreDirectory is required for Restore action"
+                }
+            }
+            'Cleanup' {
+                if (-not $BackupName) {
+                    throw "BackupName is required for Cleanup action"
+                }
+            }
+        }
+        
         # Set up paths
         $scriptRoot = $PSScriptRoot
+        
         # Suppress output if Quiet mode
         if ($Quiet) {
             $VerbosePreference = 'SilentlyContinue'
@@ -214,7 +187,6 @@ function Invoke-FileGuardian {
                     }
                 }
                 catch {
-                    # Fall back to default
                     Write-Verbose "Could not load DefaultBackupType from config: $_"
                 }
             }
@@ -278,7 +250,6 @@ function Invoke-FileGuardian {
                         Write-Log -Message "Files backed up: $($result.FilesBackedUp)" -Level Info
                         Write-Log -Message "Total size: $($result.TotalSizeMB) MB" -Level Info
                         
-                        # Report is already signed by backup modules
                         if ($result.ReportSigned) {
                             Write-Log -Message "Report signature: $($result.ReportSignature)" -Level Info
                         }
@@ -291,7 +262,6 @@ function Invoke-FileGuardian {
                     Write-Log -Message "Starting integrity verification..." -Level Info
                     Write-Log -Message "Backup path: $BackupPath" -Level Info
                     
-                    # Execute verification
                     $verifyParams = @{
                         BackupPath = $BackupPath
                     }
@@ -299,7 +269,6 @@ function Invoke-FileGuardian {
                     $result = Test-BackupIntegrity @verifyParams
                     
                     if ($result) {
-                        # Check IsIntact property (the actual property name from Test-BackupIntegrity)
                         if ($result.IsIntact) {
                             Write-Log -Message "Backup integrity verified successfully" -Level Success
                             Write-Log -Message "All files verified: $($result.Summary.VerifiedCount) files" -Level Info
@@ -317,7 +286,6 @@ function Invoke-FileGuardian {
                     Write-Log -Message "Verifying report signature..." -Level Info
                     Write-Log -Message "Report path: $ReportPath" -Level Info
                     
-                    # Execute verification - returns object with IsValid property
                     $result = Confirm-ReportSignature -ReportPath $ReportPath
                     
                     if ($result.IsValid) {
@@ -326,9 +294,9 @@ function Invoke-FileGuardian {
                         Write-Log -Message "Report signature is INVALID or MISSING" -Level Error
                     }
                     
-                    # Return the result from Confirm-ReportSignature directly
                     return $result
                 }
+                
                 'Restore' {
                     Write-Log -Message "Starting restore operation..." -Level Info
                     Write-Log -Message "BackupDirectory: $BackupDirectory" -Level Info
@@ -369,6 +337,80 @@ function Invoke-FileGuardian {
                         }
                         return $result
                     }
+                }
+                
+                'Schedule' {
+                    Write-Log -Message "Managing scheduled tasks..." -Level Info
+                    
+                    $scheduleParams = @{}
+                    
+                    if ($ConfigPath) { $scheduleParams.ConfigPath = $ConfigPath }
+                    if ($BackupName) { $scheduleParams.BackupName = $BackupName }
+                    if ($Remove) { $scheduleParams.Remove = $true }
+                    
+                    Register-BackupSchedule @scheduleParams
+                }
+                
+                'Cleanup' {
+                    Write-Log -Message "Starting retention cleanup..." -Level Info
+                    
+                    # Load config to get backup settings
+                    $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
+                    
+                    if (-not (Test-Path $configFilePath)) {
+                        throw "Configuration file not found: $configFilePath"
+                    }
+                    
+                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
+                    
+                    if (-not $config.ScheduledBackups) {
+                        throw "No scheduled backups found in configuration."
+                    }
+                    
+                    # Find the backup configuration
+                    $backupConfig = $config.ScheduledBackups | Where-Object { $_.Name -eq $BackupName }
+                    if (-not $backupConfig) {
+                        throw "Backup '$BackupName' not found in configuration."
+                    }
+                    
+                    # Determine retention days
+                    $days = if ($RetentionDays) {
+                        $RetentionDays
+                    } elseif ($backupConfig.RetentionDays) {
+                        $backupConfig.RetentionDays
+                    } elseif ($config.BackupSettings.RetentionDays) {
+                        $config.BackupSettings.RetentionDays
+                    } else {
+                        throw "No RetentionDays configured for backup: $BackupName"
+                    }
+                    
+                    # Determine backup directory
+                    $backupDir = if ($CleanupBackupDirectory) {
+                        $CleanupBackupDirectory
+                    } elseif ($backupConfig.BackupPath) {
+                        $backupConfig.BackupPath
+                    } elseif ($config.BackupSettings.DestinationPath) {
+                        $config.BackupSettings.DestinationPath
+                    } else {
+                        throw "No backup directory configured for: $BackupName"
+                    }
+                    
+                    if (-not (Test-Path $backupDir)) {
+                        throw "Backup directory not found: $backupDir"
+                    }
+                    
+                    Write-Log -Message "Cleaning up backups in: $backupDir (RetentionDays: $days)" -Level Info
+                    
+                    # Perform cleanup
+                    $result = Invoke-BackupRetention -BackupDirectory $backupDir -RetentionDays $days -BackupName $BackupName
+                    
+                    if ($result.DeletedCount -gt 0) {
+                        Write-Log -Message "Cleanup completed: Deleted $($result.DeletedCount) backup(s), freed $($result.FreedSpaceMB) MB" -Level Success
+                    } else {
+                        Write-Log -Message "Cleanup completed: No backups exceeded retention period" -Level Info
+                    }
+                    
+                    return $result
                 }
             }
         }
