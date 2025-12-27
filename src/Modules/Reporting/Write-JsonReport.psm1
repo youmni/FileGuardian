@@ -71,8 +71,23 @@ function Write-JsonReport {
                 }
             }
             
-            # Build comprehensive report
-            $report = [PSCustomObject]@{
+            # Build Statistics and conditional Changes so incremental-only fields
+            # are omitted for Full backups.
+            $statisticsHash = @{ 
+                FilesBackedUp = $BackupInfo.FilesBackedUp
+                TotalSizeMB = $BackupInfo.TotalSizeMB
+                Compressed = $BackupInfo.Compressed
+                CompressedSizeMB = $BackupInfo.CompressedSizeMB
+                CompressionRatio = $BackupInfo.CompressionRatio
+            }
+
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                $statisticsHash.FilesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+                $statisticsHash.FilesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+                $statisticsHash.FilesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+            }
+
+            $reportHash = @{ 
                 ReportMetadata = [PSCustomObject]@{
                     GeneratedAt = Get-Date -Format "o"
                     ReportVersion = "1.0"
@@ -89,19 +104,7 @@ function Write-JsonReport {
                     SourcePath = $BackupInfo.SourcePath
                     DestinationPath = $BackupInfo.DestinationPath
                 }
-                Statistics = [PSCustomObject]@{
-                    FilesBackedUp = $BackupInfo.FilesBackedUp
-                    FilesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
-                    FilesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
-                    FilesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
-                    TotalSizeMB = $BackupInfo.TotalSizeMB
-                    Compressed = $BackupInfo.Compressed
-                    CompressedSizeMB = $BackupInfo.CompressedSizeMB
-                    CompressionRatio = $BackupInfo.CompressionRatio
-                }
-                Changes = [PSCustomObject]@{
-                    DeletedFiles = if ($BackupInfo.DeletedFiles) { $BackupInfo.DeletedFiles } else { @() }
-                }
+                Statistics = [PSCustomObject]$statisticsHash
                 Integrity = [PSCustomObject]@{
                     StateSaved = $BackupInfo.IntegrityStateSaved
                     StateDirectory = if ($BackupInfo.DestinationPath) { 
@@ -123,6 +126,15 @@ function Write-JsonReport {
                     PowerShellVersion = $PSVersionTable.PSVersion.ToString()
                 }
             }
+
+            # Add Changes only for incrementals (omit entirely for full backups)
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                $reportHash.Changes = [PSCustomObject]@{
+                    DeletedFiles = if ($BackupInfo.DeletedFiles) { $BackupInfo.DeletedFiles } else { @() }
+                }
+            }
+
+            $report = [PSCustomObject]$reportHash
             
             # Convert to JSON with formatting
             $jsonContent = $report | ConvertTo-Json -Depth 10
