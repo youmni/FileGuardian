@@ -150,10 +150,11 @@ function Register-BackupSchedule {
             $command = $cmdParts -join '; '
             $argumentString = '-NoProfile -ExecutionPolicy Bypass -Command "' + $command + '"'
             
-            # Create action
-            $action = New-ScheduledTaskAction `
-                -Execute "PowerShell.exe" `
-                -Argument $argumentString
+            $actionParams = @{
+                Execute = 'PowerShell.exe'
+                Argument = $argumentString
+            }
+            $action = New-ScheduledTaskAction @actionParams
             
             # Parse time (HH:mm format)
             $timeParts = $backup.Schedule.Time -split ':'
@@ -192,26 +193,29 @@ function Register-BackupSchedule {
             # Principal - run as SYSTEM for background execution
             $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
             
-            # Settings - allow running in background, on battery, etc.
-            $settings = New-ScheduledTaskSettingsSet `
-                -AllowStartIfOnBatteries `
-                -DontStopIfGoingOnBatteries `
-                -StartWhenAvailable `
-                -WakeToRun `
-                -RunOnlyIfNetworkAvailable:$false `
-                -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
-                -MultipleInstances IgnoreNew
+            $settingsParams = @{
+                AllowStartIfOnBatteries = $true
+                DontStopIfGoingOnBatteries = $true
+                StartWhenAvailable = $true
+                WakeToRun = $true
+                RunOnlyIfNetworkAvailable = $false
+                ExecutionTimeLimit = (New-TimeSpan -Hours 4)
+                MultipleInstances = 'IgnoreNew'
+            }
+            $settings = New-ScheduledTaskSettingsSet @settingsParams
             
             # Register backup task
             try {
-                Register-ScheduledTask `
-                    -TaskName $taskName `
-                    -Action $action `
-                    -Trigger $trigger `
-                    -Principal $principal `
-                    -Settings $settings `
-                    -Description "FileGuardian automatic backup: $($backup.Name)" `
-                    -Force | Out-Null
+                $registerParams = @{
+                    TaskName = $taskName
+                    Action = $action
+                    Trigger = $trigger
+                    Principal = $principal
+                    Settings = $settings
+                    Description = "FileGuardian automatic backup: $($backup.Name)"
+                    Force = $true
+                }
+                Register-ScheduledTask @registerParams | Out-Null
                 
                 Write-Log -Message "Backup task registered: $taskName" -Level Success
                 Write-Host "   Source: $($backup.SourcePath)" -ForegroundColor Gray
@@ -243,10 +247,11 @@ function Register-BackupSchedule {
             $cleanupCommand = $cleanupCmdParts -join '; '
             $cleanupArgumentString = '-NoProfile -ExecutionPolicy Bypass -Command "' + $cleanupCommand + '"'
             
-            # Create cleanup action
-            $cleanupAction = New-ScheduledTaskAction `
-                -Execute "PowerShell.exe" `
-                -Argument $cleanupArgumentString
+            $cleanupActionParams = @{
+                Execute = 'PowerShell.exe'
+                Argument = $cleanupArgumentString
+            }
+            $cleanupAction = New-ScheduledTaskAction @cleanupActionParams
             
             # Create dummy trigger (will be replaced with event trigger)
             $cleanupTrigger = New-ScheduledTaskTrigger -AtLogOn
@@ -254,14 +259,16 @@ function Register-BackupSchedule {
             
             # Register cleanup task
             try {
-                $cleanupTask = Register-ScheduledTask `
-                    -TaskName $cleanupTaskName `
-                    -Action $cleanupAction `
-                    -Trigger $cleanupTrigger `
-                    -Principal $principal `
-                    -Settings $settings `
-                    -Description "FileGuardian retention cleanup for: $($backup.Name)" `
-                    -Force
+                $cleanupRegisterParams = @{
+                    TaskName = $cleanupTaskName
+                    Action = $cleanupAction
+                    Trigger = $cleanupTrigger
+                    Principal = $principal
+                    Settings = $settings
+                    Description = "FileGuardian retention cleanup for: $($backup.Name)"
+                    Force = $true
+                }
+                $cleanupTask = Register-ScheduledTask @cleanupRegisterParams
                 
                 # Add event-based trigger (runs when backup task completes successfully)
                 $CIMTriggerClass = Get-CimClass -ClassName MSFT_TaskEventTrigger -Namespace Root/Microsoft/Windows/TaskScheduler:MSFT_TaskEventTrigger
