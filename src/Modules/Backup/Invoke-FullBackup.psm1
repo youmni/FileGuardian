@@ -103,6 +103,9 @@ function Invoke-FullBackup {
     
     process {
         try {
+            # Record start time for duration calculation
+            $startTime = Get-Date
+
             # Create destination directory if it doesn't exist
             if (-not (Test-Path $DestinationPath)) {
                 Write-Log -Message "Creating destination directory: $DestinationPath" -Level Info
@@ -226,7 +229,12 @@ function Invoke-FullBackup {
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             Write-Log -Message "Previous backups verification: Checked $($verificationResult.VerifiedCount), Corrupted $($verificationResult.CorruptedBackups.Count)" -Level Info
             
-            # Generate report (ALWAYS - this is mandatory)
+            # Calculate duration and generate report (ALWAYS - this is mandatory)
+            $endTime = Get-Date
+            if ($startTime) {
+                $backupInfo['Duration'] = $endTime - $startTime
+            }
+
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             
             return [PSCustomObject]$backupInfo

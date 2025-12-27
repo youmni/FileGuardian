@@ -1,4 +1,3 @@
-(The file `c:\Users\Youmni Malha\Documents\Projects\FileGuardian\docs\DeveloperGuide.md` exists, but is empty)
 # FileGuardian — Developer Guide
 
 This document explains the architecture, module responsibilities, development workflow, testing, and conventions used in the FileGuardian project. It is intended for contributors and maintainers who need to understand how the system is organized and how to extend or debug it.

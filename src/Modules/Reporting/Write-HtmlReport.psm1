@@ -19,7 +19,7 @@ function Write-HtmlReport {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [object]$BackupInfo,
         
         [Parameter()]
@@ -67,22 +67,26 @@ function Write-HtmlReport {
             $compressed = if ($BackupInfo.Compressed) { "Yes" } else { "No" }
             $compressedSize = if ($BackupInfo.Compressed -and $BackupInfo.CompressedSizeMB) { 
                 "$($BackupInfo.CompressedSizeMB) MB" 
-            } else { 
+            }
+            else { 
                 "N/A" 
             }
             $compressionRatio = if ($BackupInfo.CompressionRatio) { 
                 "$([Math]::Round($BackupInfo.CompressionRatio, 2))%" 
-            } else { 
+            }
+            else { 
                 "N/A" 
             }
             $stateDir = if ($BackupInfo.DestinationPath) { 
                 Join-Path $BackupInfo.DestinationPath "states" 
-            } else { 
+            }
+            else { 
                 "N/A" 
             }
             $integrityState = if ($BackupInfo.IntegrityStateSaved) { 
                 "<span class='status-success'>Saved</span>" 
-            } else { 
+            }
+            else { 
                 "<span class='status-error'>Not Saved</span>" 
             }
             
@@ -120,19 +124,46 @@ function Write-HtmlReport {
             $generator = "FileGuardian"
             $generatedAtIso = Get-Date -Format "o"
 
-            $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
-            $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
-            $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+            # Only show incremental-specific stats for Incremental backups
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+                $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+                $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+            }
+            else {
+                $filesChanged = $null
+                $filesNew = $null
+                $filesDeleted = $null
+            }
 
             $deletedFilesHtml = ""
-            if ($BackupInfo.DeletedFiles -and $BackupInfo.DeletedFiles.Count -gt 0) {
-                $deletedFilesHtml = "<ul style='margin-top:8px'>"
-                foreach ($d in $BackupInfo.DeletedFiles) {
-                    $deletedFilesHtml += "<li>" + [System.Web.HttpUtility]::HtmlEncode($d) + "</li>"
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                if ($BackupInfo.DeletedFiles -and $BackupInfo.DeletedFiles.Count -gt 0) {
+                    $deletedFilesHtml = "<ul style='margin-top:8px'>"
+                    foreach ($d in $BackupInfo.DeletedFiles) {
+                        $deletedFilesHtml += "<li>" + [System.Web.HttpUtility]::HtmlEncode($d) + "</li>"
+                    }
+                    $deletedFilesHtml += "</ul>"
                 }
-                $deletedFilesHtml += "</ul>"
-            } else {
-                $deletedFilesHtml = "<div class='value'>None</div>"
+                else {
+                    $deletedFilesHtml = "<div class='value'>None</div>"
+                }
+            }
+
+            $incrementalStatsHtml = ""
+            if ($filesChanged -ne $null) {
+                $incrementalStatsHtml += "<div class='stat-card'>`n                        <span class='stat-number'>$filesChanged</span>`n                        <span class='stat-label'>Files Changed</span>`n                    </div>`n"
+            }
+            if ($filesNew -ne $null) {
+                $incrementalStatsHtml += "<div class='stat-card'>`n                        <span class='stat-number'>$filesNew</span>`n                        <span class='stat-label'>Files New</span>`n                    </div>`n"
+            }
+            if ($filesDeleted -ne $null) {
+                $incrementalStatsHtml += "<div class='stat-card'>`n                        <span class='stat-number'>$filesDeleted</span>`n                        <span class='stat-label'>Files Deleted</span>`n                    </div>`n"
+            }
+
+            $changesSectionHtml = ""
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                $changesSectionHtml = "<div class='section'>`n                <h2>Changes</h2>`n                <div class='info-grid'>`n                    <div class='info-item'>`n                        <label>Deleted Files</label>`n                        $deletedFilesHtml`n                    </div>`n                </div>`n            </div>"
             }
 
             $totalVerified = if ($BackupInfo.PreviousBackupsVerified) { $BackupInfo.PreviousBackupsVerified } else { 0 }
@@ -141,7 +172,8 @@ function Write-HtmlReport {
 
             $verificationSummary = if ($totalVerified -gt 0) {
                 "$verifiedOK OK, $corruptedCount Corrupted (Total: $totalVerified verified)"
-            } else {
+            }
+            else {
                 "No previous backups to verify"
             }
             
@@ -469,31 +501,12 @@ function Write-HtmlReport {
                         <span class="stat-number">$compressionRatio</span>
                         <span class="stat-label">Compression Ratio</span>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-number">$filesChanged</span>
-                        <span class="stat-label">Files Changed</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-number">$filesNew</span>
-                        <span class="stat-label">Files New</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-number">$filesDeleted</span>
-                        <span class="stat-label">Files Deleted</span>
-                    </div>
+                    $incrementalStatsHtml
                 </div>
             </div>
 
-            <!-- Changes Section -->
-            <div class="section">
-                <h2>Changes</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Deleted Files</label>
-                        $deletedFilesHtml
-                    </div>
-                </div>
-            </div>
+            <!-- Changes Section (only for incrementals) -->
+            $changesSectionHtml
             
             <!-- Integrity Section -->
             <div class="section">
@@ -569,10 +582,10 @@ function Write-HtmlReport {
             
             # Return report info
             return [PSCustomObject]@{
-                ReportPath = $ReportPath
-                Format = "HTML"
+                ReportPath  = $ReportPath
+                Format      = "HTML"
                 GeneratedAt = Get-Date
-                Size = (Get-Item $ReportPath).Length
+                Size        = (Get-Item $ReportPath).Length
             }
         }
         catch {

@@ -92,15 +92,23 @@ function Write-CsvReport {
                 "N/A" 
             }
             
-            # File change statistics
-            $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
-            $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
-            $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
-            
-            # Deleted files list (concatenate into string)
-            $deletedFilesList = "None"
-            if ($filesDeleted -gt 0 -and $BackupInfo.DeletedFiles) {
-                $deletedFilesList = ($BackupInfo.DeletedFiles -join "; ")
+            # File change statistics - only populate for Incremental backups
+            if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
+                $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
+                $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
+                $filesDeleted = if ($BackupInfo.FilesDeleted) { $BackupInfo.FilesDeleted } else { 0 }
+
+                # Deleted files list (concatenate into string)
+                $deletedFilesList = "None"
+                if ($filesDeleted -gt 0 -and $BackupInfo.DeletedFiles) {
+                    $deletedFilesList = ($BackupInfo.DeletedFiles -join "; ")
+                }
+            }
+            else {
+                $filesChanged = ""
+                $filesNew = ""
+                $filesDeleted = ""
+                $deletedFilesList = ""
             }
             
             # Build CSV data object

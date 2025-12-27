@@ -105,20 +105,25 @@ function Invoke-IncrementalBackup {
         $stateDir = Join-Path $DestinationPath "states"
         $latestStateFile = Join-Path $stateDir "latest.json"
         
-        # Set flag for full backup fallback
         $script:performFullBackupFallback = -not (Test-Path $latestStateFile)
         
         if ($script:performFullBackupFallback) {
             Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
         }
         
-        # Compress-Backup is available via manifest NestedModules
-        
+        # Import integrity helpers directly so required functions are available
+        $integrityHashModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.psm1"
+        Import-Module $integrityHashModule -Force -ErrorAction Stop
+        Write-Log -Message "Loaded integrity functions from: $integrityHashModule" -Level Info
+
         Write-Log -Message "Starting incremental backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
     
     process {
         try {
+            # Record start time for duration calculation
+            $startTime = Get-Date
+
             # Create destination directory if it doesn't exist
             if (-not (Test-Path $DestinationPath)) {
                 Write-Verbose "Creating destination directory: $DestinationPath"
@@ -230,7 +235,10 @@ function Invoke-IncrementalBackup {
             
             if ($totalFiles -eq 0) {
                 Write-Log -Message "No changes detected. Backup not needed." -Level Info
-                
+                $endTime = Get-Date
+                $duration = $null
+                if ($startTime) { $duration = $endTime - $startTime }
+
                 return [PSCustomObject]@{
                     Type = "Incremental"
                     BackupName = $BackupName
@@ -246,6 +254,7 @@ function Invoke-IncrementalBackup {
                     Compressed = $false
                     ChangesDetected = $false
                     IntegrityStateSaved = $false
+                    Duration = $duration
                 }
             }
             
@@ -356,10 +365,15 @@ function Invoke-IncrementalBackup {
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             Write-Log -Message "Previous backups verification: Checked $($verificationResult.VerifiedCount), Corrupted $($verificationResult.CorruptedBackups.Count)" -Level Info
             
-            # Generate report (ALWAYS - this is mandatory)
+            # Calculate duration and generate report (ALWAYS - this is mandatory)
+            $endTime = Get-Date
+            if ($startTime) {
+                $backupInfo['Duration'] = $endTime - $startTime
+            }
+
             $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
             Import-Module $reportHelperModule -Force
-            
+
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             
             return [PSCustomObject]$backupInfo

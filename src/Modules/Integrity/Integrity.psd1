@@ -15,9 +15,12 @@
         'Test-BackupIntegrity.psm1'
     )
     
-    # Functions to export (only Test-BackupIntegrity is public-facing)
-    # Other functions are internal helpers used by backup modules
+    # Functions to export. `Get-FileIntegrityHash` is used by backup modules
+    # and must be publicly available. Keep other internal helpers if needed.
     FunctionsToExport = @(
+        'Get-FileIntegrityHash',
+        'Save-IntegrityState',
+        'Compare-BackupIntegrity',
         'Test-BackupIntegrity'
     )
     
