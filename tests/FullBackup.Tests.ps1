@@ -131,6 +131,15 @@ Describe "Invoke-FullBackup" {
                 RetentionDays = 30
             }
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:TestConfigPath
+
+        # Capture current project reports before the test so we only remove files created by this test
+        $projectReports = Join-Path $ProjectRoot "reports"
+        if (Test-Path $projectReports) {
+            $script:ProjectReportsBefore = Get-ChildItem -Path $projectReports -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+        }
+        else {
+            $script:ProjectReportsBefore = @()
+        }
     }
     
     AfterEach {
@@ -140,6 +149,22 @@ Describe "Invoke-FullBackup" {
         if (Test-Path $script:TestDestPath) {
             Remove-Item -Path $script:TestDestPath -Recurse -Force
         }
+        # Clean up any generated reports in the project reports folder that were created by this test
+        $projectReports = Join-Path $ProjectRoot "reports"
+        if (Test-Path $projectReports) {
+            $after = Get-ChildItem -Path $projectReports -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            $created = $after | Where-Object { $script:ProjectReportsBefore -notcontains $_ }
+            foreach ($f in $created) {
+                try { Remove-Item -Path $f -Force -ErrorAction SilentlyContinue } catch {}
+                # also remove signature files next to created reports
+                $sig = "$f.sig"
+                if (Test-Path $sig) { Remove-Item -Path $sig -Force -ErrorAction SilentlyContinue }
+            }
+        }
+
+        # Also remove any temporary report directories created under the test drive
+        $tempReportDir = Join-Path $TestDrive "reports_full"
+        if (Test-Path $tempReportDir) { Remove-Item -Path $tempReportDir -Recurse -Force -ErrorAction SilentlyContinue }
     }
     
     Context "Basic Backup Functionality" {
@@ -230,7 +255,23 @@ Describe "Invoke-FullBackup" {
         
         It "Should throw when destination path is not provided and config doesn't exist" {
             $fakeConfigPath = Join-Path $TestDrive "nonexistent-config.json"
+            # Create a config file that exists but does NOT contain DestinationPath to avoid Read-Config missing-file error
+            @{
+                GlobalSettings = @{
+                    LogDirectory = "C:\TestLogs"
+                    ReportFormat = "JSON"
+                    DefaultBackupType = "Full"
+                }
+                BackupSettings = @{
+                    CompressBackups = $false
+                    ExcludePatterns = @("*.tmp", "*.log")
+                    RetentionDays = 30
+                }
+            } | ConvertTo-Json -Depth 5 | Set-Content -Path $fakeConfigPath -Force
+
             { Invoke-FullBackup -SourcePath $script:TestSourcePath -ConfigPath $fakeConfigPath } | Should -Throw "*required*"
+
+            Remove-Item -Path $fakeConfigPath -Force -ErrorAction SilentlyContinue
         }
     }
 }
