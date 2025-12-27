@@ -14,7 +14,16 @@
     .\Start-FileGuardian.ps1 -Action Verify -BackupPath ".\backups\MyBackup_20251213_120000"
     
 .EXAMPLE
-    .\Start-FileGuardian.ps1 -Action Backup -SourcePath "C:\Data" -BackupType Incremental -Compress
+    .\Start-FileGuardian.ps1 -Action Schedule
+
+.EXAMPLE
+    .\Start-FileGuardian.ps1 -Action Schedule -BackupName "DailyDocuments"
+
+.EXAMPLE
+    .\Start-FileGuardian.ps1 -Action Schedule -Remove
+
+.EXAMPLE
+    .\Start-FileGuardian.ps1 -Action Cleanup -BackupName "MyBackup"
 
 .NOTES
     This is a convenience wrapper. You can also import the module directly:
@@ -25,7 +34,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet('Backup', 'Verify', 'Report', 'Restore')]
+    [ValidateSet('Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup')]
     [string]$Action,
     
     [Parameter()]
@@ -57,6 +66,9 @@ param(
     [string]$RestoreDirectory,
     
     [Parameter()]
+    [string]$CleanupBackupDirectory,
+    
+    [Parameter()]
     [ValidateSet('JSON', 'HTML', 'CSV')]
     [string]$ReportFormat,
     
@@ -68,6 +80,12 @@ param(
     
     [Parameter()]
     [string[]]$ExcludePatterns,
+    
+    [Parameter()]
+    [switch]$Remove,
+    
+    [Parameter()]
+    [int]$RetentionDays,
     
     [Parameter()]
     [switch]$Quiet
@@ -101,10 +119,13 @@ try {
     if ($PSBoundParameters.ContainsKey('BackupName')) { $params.BackupName = $BackupName }
     if ($PSBoundParameters.ContainsKey('BackupDirectory')) { $params.BackupDirectory = $BackupDirectory }
     if ($PSBoundParameters.ContainsKey('RestoreDirectory')) { $params.RestoreDirectory = $RestoreDirectory }
+    if ($PSBoundParameters.ContainsKey('CleanupBackupDirectory')) { $params.CleanupBackupDirectory = $CleanupBackupDirectory }
     if ($PSBoundParameters.ContainsKey('ReportFormat')) { $params.ReportFormat = $ReportFormat }
     if ($PSBoundParameters.ContainsKey('ConfigPath')) { $params.ConfigPath = $ConfigPath }
     if ($PSBoundParameters.ContainsKey('Compress')) { $params.Compress = $true }
     if ($PSBoundParameters.ContainsKey('ExcludePatterns')) { $params.ExcludePatterns = $ExcludePatterns }
+    if ($PSBoundParameters.ContainsKey('Remove')) { $params.Remove = $true }
+    if ($PSBoundParameters.ContainsKey('RetentionDays')) { $params.RetentionDays = $RetentionDays }
     if ($PSBoundParameters.ContainsKey('Quiet')) { $params.Quiet = $true }
     
     # Execute FileGuardian

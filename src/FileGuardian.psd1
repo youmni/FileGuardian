@@ -36,39 +36,39 @@
         'Modules\Integrity\Save-IntegrityState.psm1',
         'Modules\Reporting\Write-JsonReport.psm1',
         'Modules\Reporting\Protect-Report.psm1',
-        'Modules\Reporting\Confirm-ReportSignature.psm1'
+        'Modules\Reporting\Confirm-ReportSignature.psm1',
+        'Modules\Scheduling\Register-BackupSchedule.psm1'
     )
 
-    # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-    # Invoke-FileGuardian is the main public API; other exports are for internal use by FileGuardian.ps1 and tooling scripts
+    # Functions to export from this module
     FunctionsToExport = @(
         'Invoke-FileGuardian',
         'Write-Log'
     )
 
-    # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
+    # Cmdlets to export from this module
     CmdletsToExport = @()
 
     # Variables to export from this module
     VariablesToExport = @()
 
-    # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
+    # Aliases to export from this module
     AliasesToExport = @()
 
-    # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
+    # Private data to pass to the module specified in RootModule/ModuleToProcess
     PrivateData = @{
         PSData = @{
-            # Tags applied to this module. These help with module discovery in online galleries.
-            Tags = @('Backup', 'Integrity', 'Hash', 'Verification', 'FileGuardian', 'Automation', 'Windows')
+            # Tags applied to this module
+            Tags = @('Backup', 'Integrity', 'Hash', 'Verification', 'FileGuardian', 'Automation', 'Windows', 'Schedule')
 
-            # A URL to the license for this module.
+            # A URL to the license for this module
             # LicenseUri = ''
 
-            # A URL to the main website for this project.
+            # A URL to the main website for this project
             # ProjectUri = ''
 
             # ReleaseNotes of this module
-            ReleaseNotes = 'Initial release with unified command interface.'
+            ReleaseNotes = 'v1.0.0 - Added Schedule and Cleanup actions to unified command interface.'
         }
     }
 }
