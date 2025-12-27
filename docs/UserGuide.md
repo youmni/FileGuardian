@@ -285,14 +285,19 @@ Manually trigger cleanup to remove old backups based on retention settings. The 
 
 **Manual Cleanup Examples:**
 ```powershell
-# Run cleanup using the configuration for the named backup
-Invoke-FileGuardian -Action Cleanup -BackupName "DailyDocuments"
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+}
+Invoke-FileGuardian @cleanupParams
 
-# Run cleanup specifying retention and directory explicitly
-Invoke-FileGuardian -Action Cleanup `
-  -BackupName "DailyDocuments" `
-  -RetentionDays 30 `
-  -CleanupBackupDirectory "D:\Backups\Documents"
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+  RetentionDays = 30
+  CleanupBackupDirectory = 'D:\Backups\Documents'
+}
+Invoke-FileGuardian @cleanupParams
 ```
 
 **Notes:**
@@ -448,14 +453,19 @@ You can run cleanup manually or invoke the dedicated `Cleanup` action to remove 
 
 **Manual Cleanup Example (from command line):**
 ```powershell
-# Run cleanup using configuration
-Invoke-FileGuardian -Action Cleanup -BackupName "DailyDocuments"
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+}
+Invoke-FileGuardian @cleanupParams
 
-# Run cleanup specifying retention and directory explicitly
-Invoke-FileGuardian -Action Cleanup `
-  -BackupName "DailyDocuments" `
-  -RetentionDays 30 `
-  -CleanupBackupDirectory "D:\Backups\Documents"
+$cleanupParams = @{
+  Action = 'Cleanup'
+  BackupName = 'DailyDocuments'
+  RetentionDays = 30
+  CleanupBackupDirectory = 'D:\Backups\Documents'
+}
+Invoke-FileGuardian @cleanupParams
 ```
 
 **Notes:**
@@ -665,17 +675,21 @@ D:\Backups\
 
 **Example Configuration:**
 ```powershell
-# ProjectA backups
-Invoke-FileGuardian -Action Backup `
-  -SourcePath "C:\Work\ProjectA" `
-  -DestinationPath "D:\Backups\ProjectA" `
-  -BackupName "ProjectA"
+$pA = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Work\ProjectA'
+  DestinationPath = 'D:\Backups\ProjectA'
+  BackupName = 'ProjectA'
+}
+Invoke-FileGuardian @pA
 
-# ProjectB backups
-Invoke-FileGuardian -Action Backup `
-  -SourcePath "C:\Work\ProjectB" `
-  -DestinationPath "D:\Backups\ProjectB" `
-  -BackupName "ProjectB"
+$pB = @{
+  Action = 'Backup'
+  SourcePath = 'C:\Work\ProjectB'
+  DestinationPath = 'D:\Backups\ProjectB'
+  BackupName = 'ProjectB'
+}
+Invoke-FileGuardian @pB
 ```
 
 ### Retention Management
