@@ -168,20 +168,23 @@ function Invoke-FileGuardian {
             $InformationPreference = 'SilentlyContinue'
         }
         
-        # Load config for DefaultBackupType if BackupType not explicitly provided
+        # Load config for DefaultBackupType using Read-Config (assumed available)
         if ($Action -eq 'Backup' -and -not $PSBoundParameters.ContainsKey('BackupType')) {
-            $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
-            if (Test-Path $configFilePath) {
-                try {
-                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
-                    if ($config.GlobalSettings.DefaultBackupType) {
-                        $BackupType = $config.GlobalSettings.DefaultBackupType
-                        Write-Verbose "Using DefaultBackupType from config: $BackupType"
-                    }
+            try {
+                if ($ConfigPath) {
+                    $config = Read-Config -ConfigPath $ConfigPath
                 }
-                catch {
-                    Write-Verbose "Could not load DefaultBackupType from config: $_"
+                else {
+                    $config = Read-Config
                 }
+
+                if ($config -and $config.GlobalSettings.DefaultBackupType) {
+                    $BackupType = $config.GlobalSettings.DefaultBackupType
+                    Write-Verbose "Using DefaultBackupType from config: $BackupType"
+                }
+            }
+            catch {
+                Write-Verbose "Could not load DefaultBackupType from config: $_"
             }
         }
         
@@ -347,16 +350,15 @@ function Invoke-FileGuardian {
                 'Cleanup' {
                     Write-Log -Message "Starting retention cleanup..." -Level Info
                     
-                    # Load config to get backup settings
-                    $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
-                    
-                    if (-not (Test-Path $configFilePath)) {
-                        throw "Configuration file not found: $configFilePath"
+                    # Load config to get backup settings using Read-Config (assumed available)
+                    if ($ConfigPath) {
+                        $config = Read-Config -ConfigPath $ConfigPath
                     }
-                    
-                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
-                    
-                    if (-not $config.ScheduledBackups) {
+                    else {
+                        $config = Read-Config
+                    }
+
+                    if (-not $config -or -not $config.ScheduledBackups) {
                         throw "No scheduled backups found in configuration."
                     }
                     
