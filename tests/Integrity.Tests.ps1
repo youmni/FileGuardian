@@ -5,13 +5,13 @@ BeforeAll {
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
     
     # Import Logging module first (dependency)
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+        Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
     
     # Import Integrity modules
-    Import-Module (Join-Path $script:IntegrityModulePath "Get-FileIntegrityHash.psm1") -Force
-    Import-Module (Join-Path $script:IntegrityModulePath "Save-IntegrityState.psm1") -Force
-    Import-Module (Join-Path $script:IntegrityModulePath "Compare-BackupIntegrity.psm1") -Force
-    Import-Module (Join-Path $script:IntegrityModulePath "Test-BackupIntegrity.psm1") -Force
+        Import-Module (Join-Path $script:IntegrityModulePath "Get-FileIntegrityHash.ps1") -Force
+        Import-Module (Join-Path $script:IntegrityModulePath "Save-IntegrityState.ps1") -Force
+        Import-Module (Join-Path $script:IntegrityModulePath "Compare-BackupIntegrity.ps1") -Force
+        Import-Module (Join-Path $script:IntegrityModulePath "Test-BackupIntegrity.ps1") -Force
 }
 
 Describe "Get-FileIntegrityHash" {

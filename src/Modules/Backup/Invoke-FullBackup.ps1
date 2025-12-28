@@ -94,10 +94,7 @@ function Invoke-FullBackup {
             $BackupName = "${BackupName}_$timestamp"
         }
         
-        $backupDestination = Join-Path $DestinationPath $BackupName
-        
-        # Compress-Backup is available via manifest NestedModules
-        
+        $backupDestination = Join-Path $DestinationPath $BackupName        
         Write-Log -Message "Starting full backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
     

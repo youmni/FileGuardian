@@ -4,16 +4,16 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
     # Import Logging module first (dependency)
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
     
-    # Import all Backup module .psm1 files (helpers and public)
-    Get-ChildItem -Path $script:BackupModulePath -Filter '*.psm1' | ForEach-Object {
+    # Import all Backup module .ps1 files (helpers and public)
+    Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
         Import-Module $_.FullName -Force
     }
-    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force
+    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1") -Force
     # Import Integrity module files (provides Get-FileIntegrityHash etc.)
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
-    Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.psm1' | ForEach-Object {
+    Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object {
         Import-Module $_.FullName -Force
     }
     
@@ -47,7 +47,7 @@ Describe "Invoke-IncrementalBackup" {
         
         New-TestData -Path $script:TestSourcePath
         # Ensure integrity helper is loaded for each test run
-        Import-Module (Join-Path $ProjectRoot "src\Modules\Integrity\Get-FileIntegrityHash.psm1") -Force
+        Import-Module (Join-Path $ProjectRoot "src\Modules\Integrity\Get-FileIntegrityHash.ps1") -Force
         
         if (Test-Path $script:TestDestPath) {
             Remove-Item -Path $script:TestDestPath -Recurse -Force

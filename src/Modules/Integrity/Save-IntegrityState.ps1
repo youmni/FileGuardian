@@ -54,7 +54,7 @@ function Save-IntegrityState {
     Process {
         try {
             # Import Get-FileIntegrityHash module
-            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.psm1") -Force
+            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.ps1") -Force
             
             # Get current hashes
             Write-Verbose "Calculating file hashes..."

@@ -5,12 +5,12 @@ This document explains the architecture, module responsibilities, development wo
 **Quick links**
 - Source entry: `src\FileGuardian.ps1`
 - CLI entry/function: `Invoke-FileGuardian` (defined in `src\FileGuardian.ps1`)
-- Scheduling: `src\Modules\Scheduling\Register-BackupSchedule.psm1`
-- Backup modules: `src\Modules\Backup\*.psm1`
-- Integrity modules: `src\Modules\Integrity\*.psm1`
-- Reporting modules: `src\Modules\Reporting\*.psm1`
-- Restore modules: `src\Modules\Restore\*.psm1`
-- Logging: `src\Modules\Logging\Write-Log.psm1`
+- Scheduling: `src\Modules\Scheduling\Register-BackupSchedule.ps1`
+- Backup modules: `src\Modules\Backup\*.ps1`
+- Integrity modules: `src\Modules\Integrity\*.ps1`
+- Reporting modules: `src\Modules\Reporting\*.ps1`
+- Restore modules: `src\Modules\Restore\*.ps1`
+- Logging: `src\Modules\Logging\Write-Log.ps1`
 - Config: `config\backup-config.json`
 
 ## Architecture Overview
@@ -20,15 +20,15 @@ FileGuardian is structured as a thin top-level command (function) that dispatche
 - Backup (full / incremental) — `src\Modules\Backup\*`
 - Integrity state and verification — `src\Modules\Integrity\*`
 - Reporting and signing — `src\Modules\Reporting\*`
-- Scheduling and Windows Task registration — `src\Modules\Scheduling\Register-BackupSchedule.psm1`
+- Scheduling and Windows Task registration — `src\Modules\Scheduling\Register-BackupSchedule.ps1`
 - Restore logic — `src\Modules\Restore\*`
-- Retention cleanup — `src\Modules\Backup\Invoke-RetentionCleanup.psm1`
-- Logging helper — `src\Modules\Logging\Write-Log.psm1`
+- Retention cleanup — `src\Modules\Backup\Invoke-RetentionCleanup.ps1`
+- Logging helper — `src\Modules\Logging\Write-Log.ps1`
 
 Design principles:
-- Small focused functions: each `*.psm1` exposes a single function representing one responsibility.
-- Config-driven behavior: scheduled tasks and default settings are driven by `config\backup-config.json`.
-- Testable units: modules are independent and designed to be invoked and tested directly.
+	- `Get-FileIntegrityHash.ps1`: canonical SHA256 file hashing and path normalization.
+	- `Save-IntegrityState.ps1`: persist `latest.json`/`prev.json` state files used for incremental backups.
+	- `Test-BackupIntegrity.ps1` & `Compare-BackupIntegrity.ps1`: verify backups against saved state and produce a verification summary.
 
 ## Main flow (high-level)
 
@@ -52,59 +52,58 @@ Below are the major modules and their responsibilities (file paths are relative 
 	- Imports nested modules from `src\Modules` at startup for local development.
 
 - `src\Modules\Backup\` (core backup logic)
-	- `Invoke-FullBackup.psm1`: performs full backups, creates metadata and reports.
-	- `Invoke-IncrementalBackup.psm1`: computes changes since last state and writes incremental backups.
-	- `Compress-Backup.psm1`: optional compression helper.
-	- `Save-BackupMetadata.psm1`: write `.backup-metadata.json` and state files.
-	- `Invoke-BackupRetention.psm1`: removes backups older than retention rules.
-	- `Invoke-RetentionCleanup.psm1`: orchestration wrapper used by schedule cleanup tasks.
+	- `Invoke-FullBackup.ps1`: performs full backups, creates metadata and reports.
+	- `Invoke-IncrementalBackup.ps1`: computes changes since last state and writes incremental backups.
+	- `Compress-Backup.ps1`: optional compression helper.
+	- `Save-BackupMetadata.ps1`: write `.backup-metadata.json` and state files.
+	- `Invoke-BackupRetention.ps1`: removes backups older than retention rules.
+	- `Invoke-RetentionCleanup.ps1`: orchestration wrapper used by schedule cleanup tasks.
 
 - `src\Modules\Integrity\` (integrity hashing and verification)
-	- `Get-FileIntegrityHash.psm1`: canonical SHA256 file hashing and path normalization.
-	- `Save-IntegrityState.psm1`: persist `latest.json`/`prev.json` state files used for incremental backups.
-	- `Test-BackupIntegrity.psm1` & `Compare-BackupIntegrity.psm1`: verify backups against saved state and produce a verification summary.
+		 - `Get-FileIntegrityHash.ps1`: canonical SHA256 file hashing and path normalization.
+		 - `Save-IntegrityState.ps1`: persist `latest.json`/`prev.json` state files used for incremental backups.
+		 - `Test-BackupIntegrity.ps1` & `Compare-BackupIntegrity.ps1`: verify backups against saved state and produce a verification summary.
 
 - `src\Modules\Reporting\` (report generation and signature)
-	- `New-BackupReport.psm1`: builds report object.
-	- `Write-JsonReport.psm1`, `Write-HtmlReport.psm1`, `Write-CsvReport.psm1`: output formats.
-	- `Protect-Report.psm1`: signs reports and writes `.sig` files.
-	- `Confirm-ReportSignature.psm1`: verify signature for a given report.
+	- `New-BackupReport.ps1`: builds report object.
+	- `Write-JsonReport.ps1`, `Write-HtmlReport.ps1`, `Write-CsvReport.ps1`: output formats.
+	- `Protect-Report.ps1`: signs reports and writes `.sig` files.
+	- `Confirm-ReportSignature.ps1`: verify signature for a given report.
 
-- `src\Modules\Scheduling\Register-BackupSchedule.psm1`
-	- Creates Windows Scheduled Tasks for each configured backup.
-	- Registers two tasks per backup: the main backup task and a cleanup task triggered by the backup's completion event.
-	- Uses `New-ScheduledTaskAction` to spawn PowerShell that imports the module and calls `Invoke-FileGuardian` with the correct parameters.
-
-- `src\Modules\Restore\`
-	- Helpers to discover and reconstruct backups: `Get-MetadataFromZip`, `Get-MetadataFromFolder`, `Resolve-Backups`, `Invoke-Restore`.
-
-- `src\Modules\Logging\Write-Log.psm1`
-	- Centralized logging helper used throughout modules. Use `Write-Log -Message <text> -Level <Info|Error|Success|Verbose>`.
-
-## Configuration
-
-Primary configuration file: `config\backup-config.json`.
-
-Priority rules (in order):
-1. Command-line parameters passed to `Invoke-FileGuardian` (highest)
-2. Values in `config\backup-config.json`
-3. Hard-coded defaults inside modules (lowest)
-
-Common fields in `ScheduledBackups` entries:
-- `Name` (string) — unique identifier
-- `Enabled` (bool)
-- `SourcePath` (string)
-- `BackupPath` (string)
-- `ReportOutputPath` (string)
-- `BackupType` (Full|Incremental)
-- `Schedule` (object) — Frequency, Time, DaysOfWeek
-- `CompressBackups` (bool)
-- `ExcludePatterns` (array)
-- `ReportFormat` (JSON|HTML|CSV)
-- `RetentionDays` (int)
-
+ Backup modules: `src\Modules\Backup\*.ps1`
+ Integrity modules: `src\Modules\Integrity\*.ps1`
+ Reporting modules: `src\Modules\Reporting\*.ps1`
+ Restore modules: `src\Modules\Restore\*.ps1`
+ Logging: `src\Modules\Logging\Write-Log.ps1`
+ Scheduling and Windows Task registration — `src\Modules\Scheduling\Register-BackupSchedule.ps1`
+ Retention cleanup — `src\Modules\Backup\Invoke-RetentionCleanup.ps1`
+ Logging helper — `src\Modules\Logging\Write-Log.ps1`
+ Small focused functions: each `*.ps1` exposes a single function representing one responsibility.
+	 - `Invoke-FullBackup.ps1`: performs full backups, creates metadata and reports.
+	 - `Invoke-IncrementalBackup.ps1`: computes changes since last state and writes incremental backups.
+	 - `Compress-Backup.ps1`: optional compression helper.
+	 - `Save-BackupMetadata.ps1`: write `.backup-metadata.json` and state files.
+	 - `Invoke-BackupRetention.ps1`: removes backups older than retention rules.
+	 - `Invoke-RetentionCleanup.ps1`: orchestration wrapper used by schedule cleanup tasks.
+	 - `Get-FileIntegrityHash.ps1`: canonical SHA256 file hashing and path normalization.
+	 - `Save-IntegrityState.ps1`: persist `latest.json`/`prev.json` state files used for incremental backups.
+	 - `Test-BackupIntegrity.ps1` & `Compare-BackupIntegrity.ps1`: verify backups against saved state and produce a verification summary.
+	 - `New-BackupReport.ps1`: builds report object.
+	 - `Write-JsonReport.ps1`, `Write-HtmlReport.ps1`, `Write-CsvReport.ps1`: output formats.
+ `src\Modules\Scheduling\Register-BackupSchedule.ps1`
+ `src\Modules\Logging\Write-Log.ps1`
+ Update `Initialize-BackupConfiguration.ps1` if defaults or mapping logic are required.
+1. Follow the repository layout: add small focused `*.ps1` files in `src\Modules\<Area>`.
+2. Export exactly one primary function per module file and name the function after the file (e.g., `Invoke-FullBackup` in `Invoke-FullBackup.ps1`).
+ `src\Modules\Backup\Invoke-FullBackup.ps1` — full backup implementation
+ `src\Modules\Backup\Invoke-IncrementalBackup.ps1` — incremental backup implementation
+ `src\Modules\Integrity\Get-FileIntegrityHash.ps1` — hashing/normalization
+ `src\Modules\Reporting\Write-JsonReport.ps1` — JSON output
+ `src\Modules\Reporting\Protect-Report.ps1` — signing reports
+ `src\Modules\Scheduling\Register-BackupSchedule.ps1` — schedule registration
+ `src\Modules\Logging\Write-Log.ps1` — log helper
 When adding fields:
-- Update `Initialize-BackupConfiguration.psm1` if defaults or mapping logic are required.
+- Update `Initialize-BackupConfiguration.ps1` if defaults or mapping logic are required.
 
 ## Scheduling
 
@@ -148,8 +147,8 @@ Invoke-ScriptAnalyzer -Path src -Recurse
 
 ## Contributing new features or modules
 
-1. Follow the repository layout: add small focused `*.psm1` files in `src\Modules\<Area>`.
-2. Export exactly one primary function per module file and name the function after the file (e.g., `Invoke-FullBackup` in `Invoke-FullBackup.psm1`).
+1. Follow the repository layout: add small focused `*.ps1` files in `src\Modules\<Area>`.
+2. Export exactly one primary function per module file and name the function after the file (e.g., `Invoke-FullBackup` in `Invoke-FullBackup.ps1`).
 3. Use `Write-Log` for internal messages instead of writing directly to the console.
 4. Add Pester tests exercising the function's public behavior, and prefer returning structured objects (PSCustomObject) instead of unstructured text.
 
@@ -202,14 +201,14 @@ Invoke-ScriptAnalyzer -Path src -Recurse
 
 ## File map (quick)
 - `src\FileGuardian.ps1` — CLI entry and dispatcher
-- `src\Modules\Backup\Invoke-FullBackup.psm1` — full backup implementation
-- `src\Modules\Backup\Invoke-IncrementalBackup.psm1` — incremental backup implementation
-- `src\Modules\Integrity\Get-FileIntegrityHash.psm1` — hashing/normalization
-- `src\Modules\Reporting\Write-JsonReport.psm1` — JSON output
-- `src\Modules\Reporting\Protect-Report.psm1` — signing reports
-- `src\Modules\Scheduling\Register-BackupSchedule.psm1` — schedule registration
-- `src\Modules\Restore\Invoke-Restore.psm1` — restore orchestration
-- `src\Modules\Logging\Write-Log.psm1` — log helper
+ - `src\Modules\Backup\Invoke-FullBackup.ps1` — full backup implementation
+ - `src\Modules\Backup\Invoke-IncrementalBackup.ps1` — incremental backup implementation
+ - `src\Modules\Integrity\Get-FileIntegrityHash.ps1` — hashing/normalization
+ - `src\Modules\Reporting\Write-JsonReport.ps1` — JSON output
+ - `src\Modules\Reporting\Protect-Report.ps1` — signing reports
+ - `src\Modules\Scheduling\Register-BackupSchedule.ps1` — schedule registration
+ - `src\Modules\Restore\Invoke-Restore.ps1` — restore orchestration
+ - `src\Modules\Logging\Write-Log.ps1` — log helper
 
 ## Final notes
 

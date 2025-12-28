@@ -1,6 +1,6 @@
 @{
     # Script module or binary module file associated with this manifest.
-    RootModule = 'FileGuardian.ps1'
+    RootModule = 'FileGuardian.psm1'
 
     # Version number of this module.
     ModuleVersion = '1.0.0'
@@ -24,26 +24,11 @@
     PowerShellVersion = '5.1'
 
     # Nested modules to load
-    NestedModules = @(
-        'Modules\Logging\Write-Log.psm1',
-        'Modules\Config\Read-Config.psm1',
-        'Modules\Backup\Invoke-FullBackup.psm1',
-        'Modules\Backup\Invoke-IncrementalBackup.psm1',
-        'Modules\Backup\Invoke-BackupRetention.psm1',
-        'Modules\Backup\Compress-Backup.psm1',
-        'Modules\Integrity\Test-BackupIntegrity.psm1',
-        'Modules\Integrity\Get-FileIntegrityHash.psm1',
-        'Modules\Integrity\Save-IntegrityState.psm1',
-        'Modules\Reporting\Write-JsonReport.psm1',
-        'Modules\Reporting\Protect-Report.psm1',
-        'Modules\Reporting\Confirm-ReportSignature.psm1',
-        'Modules\Scheduling\Register-BackupSchedule.psm1'
-    )
+    NestedModules = @()
 
     # Functions to export from this module
     FunctionsToExport = @(
-        'Invoke-FileGuardian',
-        'Write-Log'
+        'Invoke-FileGuardian'
     )
 
     # Cmdlets to export from this module

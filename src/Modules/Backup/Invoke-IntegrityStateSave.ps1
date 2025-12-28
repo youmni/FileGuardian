@@ -39,7 +39,7 @@ function Invoke-IntegrityStateSave {
     
     try {
         Write-Log -Message "Saving integrity state..." -Level Info
-        $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.psm1"
+        $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.ps1"
         
         if (Test-Path $integrityModule) {
             Import-Module $integrityModule -Force

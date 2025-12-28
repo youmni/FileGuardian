@@ -1,11 +1,12 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
 
     # Import function under test
     $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
-    Import-Module (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.psm1") -Force
+    Import-Module (Join-Path $script:CleanupModulePath "Invoke-BackupRetention.ps1") -Force
+    Import-Module (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.ps1") -Force
 
     # Prepare test paths
     $script:configPath = Join-Path $TestDrive "backup-config.json"

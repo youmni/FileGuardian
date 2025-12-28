@@ -4,10 +4,10 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
     # Import required modules
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Write-JsonReport.psm1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.psm1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.psm1") -Force
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
+    Import-Module (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1") -Force
+    Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.ps1") -Force
+    Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1") -Force
     
     # Helper function to create test backup info
     function script:New-TestBackupInfo {

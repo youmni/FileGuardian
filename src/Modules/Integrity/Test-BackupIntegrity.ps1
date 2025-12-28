@@ -70,7 +70,7 @@ function Test-BackupIntegrity {
             $state = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
             
             # Import Get-FileIntegrityHash
-            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.psm1") -Force
+            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.ps1") -Force
             
             # Check if backup is a ZIP file
             $isZip = $false

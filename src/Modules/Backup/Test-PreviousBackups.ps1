@@ -33,7 +33,7 @@ function Test-PreviousBackups {
     
     try {
         Write-Log -Message "Verifying previous backups integrity..." -Level Info
-        $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.psm1"
+        $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.ps1"
         
         if (-not (Test-Path $testIntegrityModule)) {
             return [PSCustomObject]@{

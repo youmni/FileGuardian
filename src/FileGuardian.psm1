@@ -1,22 +1,3 @@
-# Ensure nested helper modules are loaded into this module's scope
-try {
-    $moduleDir = $PSScriptRoot
-    $modulesPath = Join-Path $moduleDir 'Modules'
-    if (Test-Path $modulesPath) {
-        Get-ChildItem -Path $modulesPath -Recurse -Filter '*.psm1' -File | ForEach-Object {
-            try {
-                Import-Module -Name $_.FullName -Force -ErrorAction Stop
-            }
-            catch {
-                Write-Verbose "Failed to import nested module '$($_.FullName)': $_"
-            }
-        }
-    }
-}
-catch {
-    Write-Verbose "Error while loading nested modules: $_"
-}
-
 function Invoke-FileGuardian {
     <#
     .SYNOPSIS
@@ -168,6 +149,19 @@ function Invoke-FileGuardian {
         
         # Set up paths
         $scriptRoot = $PSScriptRoot
+
+        # Dynamically load all module scripts from the Modules directory (no hardcoded paths)
+        $modulesDir = Join-Path $scriptRoot 'Modules'
+        if (Test-Path $modulesDir) {
+            Get-ChildItem -Path $modulesDir -Recurse -Filter '*.ps1' -File | Sort-Object -Property FullName | ForEach-Object {
+                try {
+                    . $_.FullName
+                }
+                catch {
+                    Write-Verbose "Failed to load module script: $($_.FullName) - $($_.Exception.Message)"
+                }
+            }
+        }
         
         # Suppress output if Quiet mode
         if ($Quiet) {

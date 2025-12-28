@@ -4,13 +4,13 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
     # Import Logging module first (dependency)
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
     
-    # Import all Backup module .psm1 files (helpers and public)
-    Get-ChildItem -Path $script:BackupModulePath -Filter '*.psm1' | ForEach-Object {
+    # Import all Backup module .ps1 files (helpers and public)
+    Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
         Import-Module $_.FullName -Force
     }
-    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force
+    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1") -Force
     
     # Define helper function in BeforeAll scope
     function script:New-TestData {

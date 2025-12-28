@@ -56,7 +56,7 @@ function Initialize-BackupConfiguration {
     )
     
     # Import Read-Config module
-    $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.psm1"
+    $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.ps1"
     Import-Module $configModule -Force
     
     # Load configuration

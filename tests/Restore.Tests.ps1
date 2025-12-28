@@ -4,10 +4,10 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
 
     # Import Logging module dependency
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
 
     # Import all Restore module helpers/public functions
-    Get-ChildItem -Path $script:RestoreModulePath -Filter '*.psm1' | ForEach-Object {
+    Get-ChildItem -Path $script:RestoreModulePath -Filter '*.ps1' | ForEach-Object {
         Import-Module $_.FullName -Force
     }
 

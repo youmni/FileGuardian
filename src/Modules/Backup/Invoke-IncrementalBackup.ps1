@@ -112,7 +112,7 @@ function Invoke-IncrementalBackup {
         }
         
         # Import integrity helpers directly so required functions are available
-        $integrityHashModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.psm1"
+        $integrityHashModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.ps1"
         Import-Module $integrityHashModule -Force -ErrorAction Stop
         Write-Log -Message "Loaded integrity functions from: $integrityHashModule" -Level Info
 
@@ -371,7 +371,7 @@ function Invoke-IncrementalBackup {
                 $backupInfo['Duration'] = $endTime - $startTime
             }
 
-            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
+            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.ps1"
             Import-Module $reportHelperModule -Force
 
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
