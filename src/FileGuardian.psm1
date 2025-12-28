@@ -147,10 +147,9 @@ function Invoke-FileGuardian {
             }
         }
         
-        # Set up paths
         $scriptRoot = $PSScriptRoot
 
-        # Dynamically load all module scripts from the Modules directory (no hardcoded paths)
+        # Dynamically load all module scripts from the Modules directory
         $modulesDir = Join-Path $scriptRoot 'Modules'
         if (Test-Path $modulesDir) {
             Get-ChildItem -Path $modulesDir -Recurse -Filter '*.ps1' -File | Sort-Object -Property FullName | ForEach-Object {

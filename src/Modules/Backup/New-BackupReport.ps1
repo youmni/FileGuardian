@@ -33,9 +33,7 @@ function New-BackupReport {
     )
     
     try {
-        Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info
-        $signModule = Join-Path $PSScriptRoot "..\Reporting\Protect-Report.ps1"
-        
+        Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info        
         # Select report module based on format
         $reportModule = switch ($ReportFormat) {
             "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.ps1" }
@@ -43,15 +41,6 @@ function New-BackupReport {
             "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.ps1" }
             default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.ps1" }
         }
-        
-        if (-not (Test-Path $reportModule)) {
-            Write-Log -Message "Report module not found: $reportModule" -Level Error
-            $BackupInfo['ReportPath'] = $null
-            $BackupInfo['ReportSigned'] = $false
-            return $BackupInfo
-        }
-        
-        Import-Module $reportModule -Force
         
         # Generate report based on format
         $reportInfo = switch ($ReportFormat) {
@@ -83,13 +72,10 @@ function New-BackupReport {
             $BackupInfo['ReportFormat'] = $ReportFormat
             Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
             
-            if (Test-Path $signModule) {
-                Import-Module $signModule -Force
-                $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
-                $BackupInfo['ReportSigned'] = $true
-                $BackupInfo['ReportSignature'] = $signInfo.Hash
-                Write-Log -Message "Report signed successfully" -Level Info
-            }
+            $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
+            $BackupInfo['ReportSigned'] = $true
+            $BackupInfo['ReportSignature'] = $signInfo.Hash
+            Write-Log -Message "Report signed successfully" -Level Info
         }
         else {
             $BackupInfo['ReportPath'] = $null

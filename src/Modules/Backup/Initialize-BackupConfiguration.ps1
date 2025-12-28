@@ -54,11 +54,6 @@ function Initialize-BackupConfiguration {
         [Parameter()]
         [hashtable]$BoundParameters
     )
-    
-    # Import Read-Config module
-    $configModule = Join-Path $PSScriptRoot "..\Config\Read-Config.ps1"
-    Import-Module $configModule -Force
-    
     # Load configuration
     try {
         $config = if ($ConfigPath) {

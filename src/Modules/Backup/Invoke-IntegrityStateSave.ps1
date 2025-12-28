@@ -39,26 +39,19 @@ function Invoke-IntegrityStateSave {
     
     try {
         Write-Log -Message "Saving integrity state..." -Level Info
-        $integrityModule = Join-Path $PSScriptRoot "..\Integrity\Save-IntegrityState.ps1"
+        $stateDir = Join-Path $DestinationPath "states"
         
-        if (Test-Path $integrityModule) {
-            Import-Module $integrityModule -Force
-            $stateDir = Join-Path $DestinationPath "states"
-            
-            # Determine backup name for state file
-            $stateBackupName = if ($Compress) {
-                (Get-Item $BackupName).BaseName
-            } else {
-                Split-Path $BackupName -Leaf
-            }
-            
-            Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
-            return $true
+        # Determine backup name for state file
+        $stateBackupName = if ($Compress) {
+            (Get-Item $BackupName).BaseName
+        } else {
+            Split-Path $BackupName -Leaf
         }
-        else {
-            Write-Warning "Save-IntegrityState module not found. Integrity state not saved."
-            return $false
-        }
+        
+        Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
+        
+        Write-Log -Message "Integrity state saved successfully" -Level Info
+        return $true
     }
     catch {
         Write-Warning "Failed to save integrity state: $_"

@@ -69,8 +69,7 @@ function Test-BackupIntegrity {
             Write-Verbose "Loading integrity state from: $stateFile"
             $state = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
             
-            # Import Get-FileIntegrityHash
-            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.ps1") -Force
+            # Get-FileIntegrityHash will be dotsourced by the main orchestrator; no import here
             
             # Check if backup is a ZIP file
             $isZip = $false

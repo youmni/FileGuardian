@@ -111,10 +111,6 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
         }
         
-        # Import integrity helpers directly so required functions are available
-        $integrityHashModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.ps1"
-        Import-Module $integrityHashModule -Force -ErrorAction Stop
-        Write-Log -Message "Loaded integrity functions from: $integrityHashModule" -Level Info
 
         Write-Log -Message "Starting incremental backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
@@ -371,8 +367,6 @@ function Invoke-IncrementalBackup {
                 $backupInfo['Duration'] = $endTime - $startTime
             }
 
-            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.ps1"
-            Import-Module $reportHelperModule -Force
 
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             

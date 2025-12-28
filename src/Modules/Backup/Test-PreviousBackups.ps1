@@ -32,18 +32,7 @@ function Test-PreviousBackups {
     )
     
     try {
-        Write-Log -Message "Verifying previous backups integrity..." -Level Info
-        $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.ps1"
-        
-        if (-not (Test-Path $testIntegrityModule)) {
-            return [PSCustomObject]@{
-                VerifiedCount = 0
-                CorruptedBackups = @()
-                VerifiedBackupsOK = 0
-            }
-        }
-        
-        Import-Module $testIntegrityModule -Force
+        Write-Log -Message "Verifying previous backups integrity..." -Level Info        
         
         # Find all previous backups in the destination path
         $backupDir = if ($Compress) { 
