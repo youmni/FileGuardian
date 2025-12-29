@@ -29,14 +29,28 @@ function Write-Log {
     $dateStamp = Get-Date -Format "yyyyMMdd"
     $logDir = $null
     
-    # Load configuration via Read-Config
-    $config = $null
-    try {
-        $config = Read-Config -ConfigPath $env:FILEGUARDIAN_CONFIG_PATH
+    # Load configuration via Read-Config only when a config path is explicitly provided.
+    # Cache result in script scope to avoid repeated reads on every log call.
+    if (-not (Get-Variable -Scope Script -Name FileGuardian_CachedConfig -ErrorAction SilentlyContinue)) {
+        $script:FileGuardian_CachedConfig = $null
     }
-    catch {
-        Write-Verbose "Read-Config failed or no config path provided: $_"
+
+    if (-not $script:FileGuardian_CachedConfig) {
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($env:FILEGUARDIAN_CONFIG_PATH)) {
+                $script:FileGuardian_CachedConfig = Read-Config -ConfigPath $env:FILEGUARDIAN_CONFIG_PATH
+            }
+            else {
+                $script:FileGuardian_CachedConfig = $null
+            }
+        }
+        catch {
+            Write-Verbose "Read-Config failed or no config path provided: $_"
+            $script:FileGuardian_CachedConfig = $null
+        }
     }
+
+    $config = $script:FileGuardian_CachedConfig
     
     # Default to config or appropriate system-wide location if no config
     if (-not $logDir) {

@@ -57,7 +57,7 @@ function Read-Config {
         return $config
     }
     catch {
-        Write-Log -Message "Failed to read configuration: $_" -Level Error
+        Write-Log -Message "Failed to read configuration: $_" -Level Warning
         Write-Warning "Error reading configuration file: $_"
         throw
     }
