@@ -114,12 +114,23 @@ function Invoke-FullBackup {
             Write-Log -Message "Scanning source directory..." -Level Info
             $files = Get-ChildItem -Path $SourcePath -Recurse -File
             $originalFileCount = $files.Count
-            
-            # Apply exclusions
-            if ($ExcludePatterns.Count -gt 0) {
+
+            # Resolve source path to absolute (used for relative-path matching)
+            $absoluteSourcePath = (Resolve-Path $SourcePath).Path
+
+            # Apply exclusions (match against relative path, not just file name)
+            if ($ExcludePatterns -and $ExcludePatterns.Count -gt 0) {
                 Write-Verbose "Applying exclusion patterns: $($ExcludePatterns -join ', ')"
-                foreach ($pattern in $ExcludePatterns) {
-                    $files = $files | Where-Object { $_.Name -notlike $pattern }
+                $files = $files | Where-Object {
+                    $relativePath = $_.FullName.Substring($absoluteSourcePath.Length).TrimStart('\','/')
+                    $excluded = $false
+                    foreach ($pattern in $ExcludePatterns) {
+                        if ($relativePath -like $pattern) {
+                            $excluded = $true
+                            break
+                        }
+                    }
+                    -not $excluded
                 }
                 $excludedCount = $originalFileCount - $files.Count
                 if ($excludedCount -gt 0) {
@@ -138,10 +149,7 @@ function Invoke-FullBackup {
             $finalDestination = if ($Compress) { $tempDir } else { $backupDestination }
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
-            
-            # Resolve source path to absolute
-            $absoluteSourcePath = (Resolve-Path $SourcePath).Path
-            
+                        
             foreach ($file in $files) {
                 $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart('\')
                 $targetPath = Join-Path $finalDestination $relativePath
