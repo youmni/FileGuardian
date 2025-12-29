@@ -109,6 +109,15 @@ Describe "Invoke-IncrementalBackup" {
         # Clean up any temporary report directories created under the test drive
         $tempReportDir = Join-Path $TestDrive "reports_incremental"
         if (Test-Path $tempReportDir) { Remove-Item -Path $tempReportDir -Recurse -Force -ErrorAction SilentlyContinue }
+        # Also remove any report files created under the test drive (json/html/csv)
+        try {
+            Get-ChildItem -Path $TestDrive -Recurse -File -Include *.json,*.html,*.csv -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -like "*report*" -or $_.DirectoryName -like "*reports*" } |
+                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+        }
+        catch {
+            Write-Verbose "No report files to clean up."
+        }
     }
 
     Context "Basic Incremental Functionality" {
