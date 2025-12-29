@@ -32,9 +32,9 @@ function Get-ConsistentRelativePath {
         throw "File path '$FullPath' is not under base path '$BasePath'"
     }
 
-    # Calculate relative path (original filesystem casing preserved)
-    $relativePath = $fullNormalized.Substring($baseNormalized.Length).TrimStart([char]'\',[char]'/')
-    $relativePathOriginalCase = $FullPath.Substring($BasePath.Length).TrimStart([char]'\',[char]'/')
+    # Calculate relative path
+    $relativePath = $fullNormalized.Substring($baseNormalized.Length).TrimStart([char]'\\',[char]'/')
+    $relativePathOriginalCase = $FullPath.Substring($BasePath.Length).TrimStart([char]'\\',[char]'/')
 
     return $relativePathOriginalCase
 }

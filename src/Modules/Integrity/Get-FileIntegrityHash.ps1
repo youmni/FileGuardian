@@ -29,7 +29,7 @@ function Get-FileIntegrityHash {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateScript({ Test-Path $_ })]
         [string]$Path,
         
@@ -79,11 +79,11 @@ function Get-FileIntegrityHash {
                         $relativePath = Get-ConsistentRelativePath -BasePath $item.FullName -FullPath $file.FullName
 
                         $fileInfo = [PSCustomObject]@{
-                            Path = $file.FullName
-                            RelativePath = $relativePath
-                            Hash = $hash.Hash
-                            Algorithm = $Algorithm
-                            Size = $file.Length
+                            Path          = $file.FullName
+                            RelativePath  = $relativePath
+                            Hash          = $hash.Hash
+                            Algorithm     = $Algorithm
+                            Size          = $file.Length
                             LastWriteTime = $file.LastWriteTime
                         }
 
@@ -125,11 +125,11 @@ function Get-FileIntegrityHash {
                     $relativePath = $item.Name
                     
                     $fileInfo = [PSCustomObject]@{
-                        Path = $item.FullName
-                        RelativePath = $relativePath
-                        Hash = $hash.Hash
-                        Algorithm = $Algorithm
-                        Size = $item.Length
+                        Path          = $item.FullName
+                        RelativePath  = $relativePath
+                        Hash          = $hash.Hash
+                        Algorithm     = $Algorithm
+                        Size          = $item.Length
                         LastWriteTime = $item.LastWriteTime
                     }
                     

@@ -32,6 +32,11 @@ function Invoke-IncrementalBackup {
     .PARAMETER ReportFormat
         Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
     
+    .PARAMETER ReportPath
+        Optional path or file name for the generated backup report. If provided,
+        the report writer will save the report to this path. If omitted, the
+        destination is taken from configuration (`ReportOutputPath`) or defaults.
+    
     .EXAMPLE
         Invoke-IncrementalBackup -SourcePath "C:\Data"
         Backs up only changed files since last backup, or automatically performs full backup if none exists
@@ -43,7 +48,7 @@ function Invoke-IncrementalBackup {
     .NOTES
         - If no previous backup state exists, automatically performs a full backup first
         - Reports are always generated and digitally signed
-        - Backup chain: Full -> Incremental -> Incremental -> Incremental -> Full (recommended)
+        - Backup chain: Full -> Incremental -> Incremental -> Incremental -> Full
     #>
     [CmdletBinding()]
     param(
@@ -139,7 +144,7 @@ function Invoke-IncrementalBackup {
             
             # If source mismatch, delegate to full backup
             if ($script:performFullBackupFallback) {
-                Write-Log -Message "Delegating to full backup due to missing or mismatched state" -Level Info
+                Write-Log -Message "Delegating to full backup due to missing or mismatched state. This can happen there was no previous full backup." -Level Info
                 
                 $fullBackupParams = @{
                     SourcePath = $SourcePath

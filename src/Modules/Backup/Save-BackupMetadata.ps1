@@ -8,7 +8,7 @@ function Save-BackupMetadata {
         Metadata includes backup type, source path, timestamp, and file count.
     
     .PARAMETER BackupType
-        Type of backup (Full, Incremental, or Differential).
+        Type of backup (Full or Incremental).
     
     .PARAMETER SourcePath
         The source path that was backed up.

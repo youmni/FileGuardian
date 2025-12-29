@@ -2,23 +2,84 @@ function Invoke-FileGuardian {
     <#
     .SYNOPSIS
         Unified command for FileGuardian backup operations.
-    
+
     .DESCRIPTION
         Main entry point for FileGuardian functionality. Supports backup operations,
-        integrity verification, reporting, scheduling, and cleanup through a single command interface.
-    
+        integrity verification, reporting, scheduling, restore and retention cleanup
+        through a single command interface. Many parameters are optional and
+        validated depending on the chosen `-Action`.
+
     .PARAMETER Action
-        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup'.
-    
+        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore', 'Schedule' or 'Cleanup'.
+
+    .PARAMETER SourcePath
+        Path to the source directory to back up. Required when `-Action Backup` is used.
+
+    .PARAMETER DestinationPath
+        Optional destination root path where backups will be written. If omitted,
+        the destination is taken from configuration or defaults.
+
+    .PARAMETER BackupName
+        Optional name for the backup configuration or backup job. Required by some
+        operations (for example `-Action Cleanup` uses `-BackupName` to select configuration).
+
+    .PARAMETER BackupType
+        Type of backup to perform when `-Action Backup`. Valid values: 'Full', 'Incremental'.
+        Default is 'Full' (can be overridden by configuration).
+
+    .PARAMETER Compress
+        Switch to enable compression of created backups (ZIP archives).
+
+    .PARAMETER ExcludePatterns
+        Array of file/directory patterns to exclude from backups (e.g. @('*.tmp','node_modules/**')).
+
+    .PARAMETER ReportFormat
+        Format for generated reports. Valid values: 'JSON', 'HTML', 'CSV'. If omitted,
+        the configured default is used.
+
+    .PARAMETER ReportOutputPath
+        Output directory for generated backup reports. When provided, this path is
+        forwarded to underlying report writers.
+
+    .PARAMETER ReportPath
+        Path to an existing report file to verify.
+
+    .PARAMETER BackupPath
+        Path to a backup to verify (used with `-Action Verify`). Can point to a
+        backup directory or a compressed backup file.
+
+    .PARAMETER BackupDirectory
+        Directory containing backup files to restore from (used with `-Action Restore`).
+
+    .PARAMETER RestoreDirectory
+        Destination directory where backups will be restored (used with `-Action Restore`).
+
+    .PARAMETER CleanupBackupDirectory
+        Optional explicit backup directory used for `-Action Cleanup`. If omitted,
+        the backup directory is taken from the named configuration or global settings.
+
+    .PARAMETER ConfigPath
+        Optional path to a custom configuration file (e.g. config\backup-config.json).
+
+    .PARAMETER Remove
+        Switch used by `-Action Schedule` to remove a scheduled task instead of registering it.
+
+    .PARAMETER RetentionDays
+        Integer number of days to retain backups (used with `-Action Cleanup`). If omitted,
+        retention is read from the backup configuration.
+
+    .PARAMETER Quiet
+        Suppresses informational and verbose output when present.
+
     .EXAMPLE
         Invoke-FileGuardian -Action Backup -SourcePath "C:\Data"
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Schedule
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments"
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Cleanup -BackupName "MyBackup"
     #>
@@ -82,7 +143,6 @@ function Invoke-FileGuardian {
         })]
         [string]$ReportPath,
         
-        # Report output path for backups
         [Parameter(Mandatory=$false)]
         [string]$ReportOutputPath,
         
@@ -102,11 +162,9 @@ function Invoke-FileGuardian {
         [ValidateSet('JSON', 'HTML', 'CSV')]
         [string]$ReportFormat,
         
-        # Schedule parameters
         [Parameter(Mandatory=$false)]
         [switch]$Remove,
         
-        # Cleanup parameters
         [Parameter(Mandatory=$false)]
         [int]$RetentionDays,
         

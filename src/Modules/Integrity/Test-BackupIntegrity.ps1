@@ -68,9 +68,7 @@ function Test-BackupIntegrity {
             # Load state
             Write-Verbose "Loading integrity state from: $stateFile"
             $state = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
-            
-            # Get-FileIntegrityHash will be dotsourced by the main orchestrator; no import here
-            
+                        
             # Check if backup is a ZIP file
             $isZip = $false
             $tempExtractPath = $null
@@ -118,7 +116,7 @@ function Test-BackupIntegrity {
                 Write-Verbose "No metadata found, assuming Full backup"
             }
             
-            # Calculate current hashes for backup (heavy operation)
+            # Calculate current hashes for backup
             Write-Log -Message "Calculating current hashes for backup: $absoluteBackupPath" -Level Info
             Write-Progress -Activity "Verifying backup" -Status "Calculating hashes..." -PercentComplete 0
             $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -Recurse
@@ -152,8 +150,6 @@ function Test-BackupIntegrity {
             # Check files in state
             foreach ($path in $stateHash.Keys) {
                 if (-not $currentHash.ContainsKey($path)) {
-                    # For incremental/differential: missing files are expected (they weren't changed)
-                    # For full backup: missing files are an error
                     if (-not $isIncrementalOrDifferential) {
                         $missing += $stateHash[$path]
                     }

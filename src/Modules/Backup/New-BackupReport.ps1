@@ -34,14 +34,6 @@ function New-BackupReport {
     
     try {
         Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info        
-        # Select report module based on format
-        $reportModule = switch ($ReportFormat) {
-            "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.ps1" }
-            "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.ps1" }
-            "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.ps1" }
-            default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.ps1" }
-        }
-        
         # Generate report based on format
         $reportInfo = switch ($ReportFormat) {
             "JSON" {
