@@ -43,56 +43,7 @@ function Get-FileIntegrityHash {
     
     Begin {
         Write-Log -Message "Starting hash calculation for: $Path (Algorithm: $Algorithm)" -Level Info
-        
-        # Thread-safe collection for results (if we add parallelization later)
         $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-        
-        # Normalization function for consistent path handling
-        function Get-NormalizedPath {
-            param([string]$PathToNormalize)
-            
-            # Resolve to full path and normalize
-            $resolved = (Resolve-Path -Path $PathToNormalize -ErrorAction Stop).Path
-            
-            # Ensure consistent format:
-            # 1. Convert to uppercase (Windows is case-insensitive, but we want consistency)
-            # 2. Remove trailing backslash (unless it's a root like C:\)
-            # 3. Use backslashes consistently
-            $normalized = $resolved.ToUpperInvariant()
-            
-            # Don't remove trailing slash from root paths (C:\, D:\, etc.)
-            if ($normalized -notmatch '^[A-Z]:\\$') {
-                $normalized = $normalized.TrimEnd('\')
-            }
-            
-            return $normalized
-        }
-        
-        # Relative path calculation function
-        function Get-ConsistentRelativePath {
-            param(
-                [string]$BasePath,
-                [string]$FullPath
-            )
-            
-            # Normalize both paths for comparison
-            $baseNormalized = Get-NormalizedPath -PathToNormalize $BasePath
-            $fullNormalized = Get-NormalizedPath -PathToNormalize $FullPath
-            
-            # Ensure full path starts with base path
-            if (-not $fullNormalized.StartsWith($baseNormalized, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "File path '$FullPath' is not under base path '$BasePath'"
-            }
-            
-            # Calculate relative path
-            $relativePath = $fullNormalized.Substring($baseNormalized.Length).TrimStart('\', '/')
-            
-            # Convert back to original casing using the actual file path
-            # This preserves the original case from the filesystem
-            $relativePathOriginalCase = $FullPath.Substring($BasePath.Length).TrimStart('\', '/')
-            
-            return $relativePathOriginalCase
-        }
     }
     
     Process {
@@ -103,36 +54,30 @@ function Get-FileIntegrityHash {
                 # Directory - get all files
                 Write-Verbose "Processing directory: $($item.FullName)"
                 
-                $files = if ($Recurse) {
-                    Get-ChildItem -Path $Path -File -Recurse -ErrorAction Stop
-                } else {
-                    Get-ChildItem -Path $Path -File -ErrorAction Stop
-                }
-                
-                $totalFiles = $files.Count
+                # Stream files instead of loading all into memory
+                $childParams = @{ Path = $Path; File = $true; ErrorAction = 'Stop' }
+                if ($Recurse) { $childParams['Recurse'] = $true }
+
+                # Count files with a streamed enumeration (does not keep objects in memory)
+                $totalFiles = (Get-ChildItem @childParams | Measure-Object).Count
                 Write-Verbose "Found $totalFiles files to process"
                 Write-Log -Message "Calculating $Algorithm hashes for $totalFiles files in $Path" -Level Info
                 Write-Progress -Activity "Hashing files" -Status "Starting..." -PercentComplete 0
-                
+
                 if ($totalFiles -eq 0) {
                     Write-Log -Message "No files found in: $Path" -Level Warning
                     return @()
                 }
-                
-                # Get normalized base path once
-                $normalizedBasePath = Get-NormalizedPath -PathToNormalize $item.FullName
-                
-                # Process each file
+
+                # Process files as a stream to avoid high memory usage
                 $processedCount = 0
-                foreach ($file in $files) {
+                Get-ChildItem @childParams | ForEach-Object {
+                    $file = $_
                     try {
-                        # Calculate hash
                         $hash = Get-FileHash -Path $file.FullName -Algorithm $Algorithm -ErrorAction Stop
-                        
-                        # Calculate consistent relative path
+
                         $relativePath = Get-ConsistentRelativePath -BasePath $item.FullName -FullPath $file.FullName
-                        
-                        # Create result object with consistent property order
+
                         $fileInfo = [PSCustomObject]@{
                             Path = $file.FullName
                             RelativePath = $relativePath
@@ -141,22 +86,24 @@ function Get-FileIntegrityHash {
                             Size = $file.Length
                             LastWriteTime = $file.LastWriteTime
                         }
-                        
-                        # Add to results (thread-safe collection)
+
                         $results.Add($fileInfo)
-                        
+
                         $processedCount++
 
-                        # Progress indication every 100 files (and update progress UI)
                         if ($processedCount % 100 -eq 0) {
-                            $percent = if ($totalFiles -gt 0) { [math]::Round(($processedCount / $totalFiles) * 100, 0) } else { 100 }
-                            Write-Verbose "Progress: $processedCount / $totalFiles files hashed"
-                            Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount of $totalFiles" -PercentComplete $percent
+                            if ($totalFiles -gt 0) {
+                                $percent = [math]::Round(($processedCount / $totalFiles) * 100, 0)
+                                Write-Verbose "Progress: $processedCount / $totalFiles files hashed"
+                                Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount of $totalFiles" -PercentComplete $percent
+                            }
+                            else {
+                                Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount files"
+                            }
                         }
                     }
                     catch {
                         Write-Log -Message "Failed to hash file '$($file.FullName)': $_" -Level Warning
-                        # Continue processing other files even if one fails
                         continue
                     }
                 }
