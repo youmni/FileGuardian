@@ -33,8 +33,8 @@ function Get-ConsistentRelativePath {
     }
 
     # Calculate relative path (original filesystem casing preserved)
-    $relativePath = $fullNormalized.Substring($baseNormalized.Length).TrimStart('\\','/')
-    $relativePathOriginalCase = $FullPath.Substring($BasePath.Length).TrimStart('\\','/')
+    $relativePath = $fullNormalized.Substring($baseNormalized.Length).TrimStart([char]'\',[char]'/')
+    $relativePathOriginalCase = $FullPath.Substring($BasePath.Length).TrimStart([char]'\',[char]'/')
 
     return $relativePathOriginalCase
 }

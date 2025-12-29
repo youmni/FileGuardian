@@ -122,7 +122,7 @@ function Invoke-FullBackup {
             if ($ExcludePatterns -and $ExcludePatterns.Count -gt 0) {
                 Write-Verbose "Applying exclusion patterns: $($ExcludePatterns -join ', ')"
                 $files = $files | Where-Object {
-                    $relativePath = $_.FullName.Substring($absoluteSourcePath.Length).TrimStart('\','/')
+                    $relativePath = $_.FullName.Substring($absoluteSourcePath.Length).TrimStart([char]'\',[char]'/')
                     $excluded = $false
                     foreach ($pattern in $ExcludePatterns) {
                         if ($relativePath -like $pattern) {
@@ -151,7 +151,7 @@ function Invoke-FullBackup {
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
                         
             foreach ($file in $files) {
-                $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart('\')
+                $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart([char]'\')
                 $targetPath = Join-Path $finalDestination $relativePath
                 $targetDir = Split-Path $targetPath -Parent
 

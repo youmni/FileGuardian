@@ -4,11 +4,11 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
 
     # Import Logging module dependency
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Import all Restore module helpers/public functions
+    # Dot-source all Restore module helpers/public functions
     Get-ChildItem -Path $script:RestoreModulePath -Filter '*.ps1' | ForEach-Object {
-        Import-Module $_.FullName -Force
+        . $_.FullName
     }
 
     function script:New-RestoreBackupFolder {
