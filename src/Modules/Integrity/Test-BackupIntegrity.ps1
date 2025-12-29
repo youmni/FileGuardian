@@ -81,8 +81,8 @@ function Test-BackupIntegrity {
                 Write-Log -Message "Backup is compressed (ZIP). Extracting for verification..." -Level Info
                 Write-Verbose "Backup is a ZIP archive, extracting..."
 
-                # Create temp directory for extraction
-                $tempExtractPath = Join-Path $env:TEMP "FileGuardian_Verify_$(Get-Date -Format 'yyyyMMddHHmmss')"
+                # Create temp directory for extraction (unique name to avoid collisions)
+                $tempExtractPath = Join-Path $env:TEMP ("FileGuardian_Verify_{0}_{1}" -f (Get-Date -Format 'yyyyMMddHHmmss'), [IO.Path]::GetRandomFileName())
                 New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
 
                 # Show extraction progress stub and extract

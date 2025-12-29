@@ -259,8 +259,8 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "Changes detected: $($changedFiles.Count) modified, $($newFiles.Count) new, $($deletedFiles.Count) deleted" -Level Info
             Write-Log -Message "Backing up $totalFiles files (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)" -Level Info
             
-            # Copy files to temporary or final destination
-            $tempDir = Join-Path $env:TEMP "FileGuardian_$timestamp"
+            # Copy files to temporary or final destination (use unique temp folder to avoid collisions)
+            $tempDir = Join-Path $env:TEMP ("FileGuardian_{0}_{1}" -f $timestamp, [IO.Path]::GetRandomFileName())
             $finalDestination = if ($Compress) { $tempDir } else { $backupDestination }
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
@@ -375,6 +375,12 @@ function Invoke-IncrementalBackup {
         catch {
             Write-Error "Incremental backup failed: $_"
             throw
+        }
+        finally {
+            # Ensure temporary directory is removed if it exists (cleanup on errors or if compression didn't remove it)
+            if ($Compress -and $tempDir -and (Test-Path $tempDir)) {
+                try { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction Stop } catch { Write-Log -Message ("Failed to cleanup tempDir: {0}. {1}" -f $tempDir, $_.Exception.Message) -Level Warning }
+            }
         }
     }
 }

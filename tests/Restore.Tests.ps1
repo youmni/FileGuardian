@@ -122,6 +122,13 @@ Describe "Restore Module" {
             $resolved | Where-Object { $_.IsZip } | Should -Not -BeNullOrEmpty
             $resolved | Where-Object { -not $_.IsZip } | Should -Not -BeNullOrEmpty
             $resolved | ForEach-Object { $_.Timestamp -is [DateTime] | Should -BeTrue }
+
+            # Cleanup any extracted temporary folders created by Resolve-Backups to avoid leaving temp artifacts
+            foreach ($r in $resolved | Where-Object { $_.IsZip }) {
+                if ($r.ExtractPath -and (Test-Path $r.ExtractPath)) {
+                    Remove-Item -Path $r.ExtractPath -Recurse -Force
+                }
+            }
         }
 
         It "Should apply backups into restore directory and remove metadata files with Invoke-Restore" {

@@ -144,8 +144,8 @@ function Invoke-FullBackup {
             
             Write-Log -Message "Found $totalFiles files to backup (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)" -Level Info
             
-            # Copy files to temporary or final destination
-            $tempDir = Join-Path $env:TEMP "FileGuardian_$timestamp"
+            # Copy files to temporary or final destination (use unique temp folder to avoid collisions)
+            $tempDir = Join-Path $env:TEMP ("FileGuardian_{0}_{1}" -f $timestamp, [IO.Path]::GetRandomFileName())
             $finalDestination = if ($Compress) { $tempDir } else { $backupDestination }
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
@@ -247,6 +247,12 @@ function Invoke-FullBackup {
         catch {
             Write-Error "Full backup failed: $_"
             throw
+        }
+        finally {
+            # Ensure temporary directory is removed if it exists
+            if ($Compress -and $tempDir -and (Test-Path $tempDir)) {
+                try { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction Stop } catch { Write-Log -Message ("Failed to cleanup tempDir: {0}. {1}" -f $tempDir, $_.Exception.Message) -Level Warning }
+            }
         }
     }
 }
