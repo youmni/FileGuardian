@@ -29,28 +29,48 @@ function Write-Log {
     $dateStamp = Get-Date -Format "yyyyMMdd"
     $logDir = $null
     
-    # Try to load config for LogDirectory
-    $configPath = Join-Path $PSScriptRoot "..\..\..\config\backup-config.json"
-    if (Test-Path $configPath) {
-        try {
-            $config = Get-Content $configPath -Raw | ConvertFrom-Json
-            if ($config.GlobalSettings.LogDirectory) {
-                $logDir = $config.GlobalSettings.LogDirectory
-            }
-        }
-        catch {
-            # Fall back to default if config can't be read
-            Write-Verbose "Could not load LogDirectory from config: $_"
-        }
+    # Load configuration via Read-Config
+    $config = $null
+    try {
+        $config = Read-Config -ConfigPath $env:FILEGUARDIAN_CONFIG_PATH
+    }
+    catch {
+        Write-Verbose "Read-Config failed or no config path provided: $_"
     }
     
-    # Default to relative logs directory if no config
+    # Default to config or appropriate system-wide location if no config
     if (-not $logDir) {
-        $logDir = Join-Path $PSScriptRoot "..\..\..\logs"
+        if ($config -and $config.GlobalSettings.LogDirectory) {
+            $logDir = $config.GlobalSettings.LogDirectory
+        }
+        else {
+            if ($env:ProgramData) {
+                $logDir = Join-Path $env:ProgramData "FileGuardian\logs"
+            }
+            else {
+                $logDir = Join-Path $env:LOCALAPPDATA "FileGuardian\logs"
+            }
+        }
     }
     
     $logPath = Join-Path $logDir "fileguardian_$dateStamp.log"
     
+    # Log rotation: remove old log files older than retention period
+    $logRetentionDays = 90
+
+    try {
+        if (Test-Path $logDir) {
+            Get-ChildItem -Path $logDir -File -Filter "fileguardian_*.log" |
+                Where-Object { $_.CreationTime -lt (Get-Date).AddDays(-$logRetentionDays) } |
+                ForEach-Object {
+                    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+                    Write-Verbose "Removed old log file: $($_.Name)"
+                }
+        }
+    }
+    catch {
+        Write-Verbose "Log rotation failed: $_"
+    }
     # Console output with colors
     switch ($Level) {
         'Info'    { Write-Host $logMessage -ForegroundColor Cyan }
