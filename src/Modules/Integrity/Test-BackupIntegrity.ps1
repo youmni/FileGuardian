@@ -119,7 +119,7 @@ function Test-BackupIntegrity {
             # Calculate current hashes for backup
             Write-Log -Message "Calculating current hashes for backup: $absoluteBackupPath" -Level Info
             Write-Progress -Activity "Verifying backup" -Status "Calculating hashes..." -PercentComplete 0
-            $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -Recurse
+            $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -StateDirectory $StateDirectory -Recurse
             Write-Progress -Activity "Verifying backup" -Completed
             Write-Log -Message "Calculated current hashes: $($currentHashes.Count) files" -Level Info
             

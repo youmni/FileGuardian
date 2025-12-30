@@ -80,7 +80,47 @@ function Get-FileIntegrityHash {
         
         if ($previousState -and $previousState.Files) {
             foreach ($file in $previousState.Files) {
-                $cacheKey = "$($file.RelativePath)|$($file.Size)|$($file.LastWriteTime)"
+                # Normalize RelativePath to match runtime generation (no leading slashes)
+                $rel = $file.RelativePath
+                if ($rel) { $rel = $rel.TrimStart('\', '/') }
+
+                # Robust Size extraction: support 'Size' or 'Length' fields
+                if ($file.PSObject.Properties.Name -contains 'Size') {
+                    $size = [long]$file.Size
+                }
+                elseif ($file.PSObject.Properties.Name -contains 'Length') {
+                    $size = [long]$file.Length
+                }
+                else {
+                    $size = 0
+                }
+
+                # Parse LastWriteTime from common JSON formats (MS AJAX '/Date(...)' or ISO strings)
+                $lastWriteTime = $file.LastWriteTime
+                if ($lastWriteTime -is [string]) {
+                    if ($lastWriteTime -match '/Date\((\d+)\)/') {
+                        $ticks = [long]$matches[1]
+                        $lastWriteTime = [DateTime]::new(1970, 1, 1, 0, 0, 0, [DateTimeKind]::Utc).AddMilliseconds($ticks).ToLocalTime()
+                    }
+                    else {
+                        try {
+                            $lastWriteTime = [DateTime]::Parse($lastWriteTime)
+                        }
+                        catch {
+                            # fallback: leave as string
+                        }
+                    }
+                }
+
+                # Normalize to consistent string format for cache key
+                $lastWriteTimeStr = if ($lastWriteTime -is [DateTime]) {
+                    $lastWriteTime.ToString('yyyy-MM-dd HH:mm:ss.fff')
+                }
+                else {
+                    $lastWriteTime.ToString()
+                }
+
+                $cacheKey = "$rel|$size|$lastWriteTimeStr"
                 $null = $cache.TryAdd($cacheKey, $file)
             }
             Write-Verbose "Loaded $($cache.Count) cached entries from previous state"
@@ -129,10 +169,17 @@ function Get-FileIntegrityHash {
                         
                         $relativePath = $FilePath.Substring($BaseDir.Length).TrimStart('\', '/')
                         
-                        # Check cache
-                        $cacheKey = "$relativePath|$FileSize|$FileLastWrite"
+                        # Check cache (normalise LastWriteTime to match stored keys)
+                        if ($FileLastWrite -is [DateTime]) {
+                            $lastWriteTimeStr = $FileLastWrite.ToString('yyyy-MM-dd HH:mm:ss.fff')
+                        }
+                        else {
+                            $lastWriteTimeStr = $FileLastWrite.ToString()
+                        }
+
+                        $cacheKey = "$relativePath|$FileSize|$lastWriteTimeStr"
                         $cached = $null
-                        
+
                         if ($CacheDict.TryGetValue($cacheKey, [ref]$cached)) {
                             # Cache hit - reuse hash
                             return [PSCustomObject]@{
@@ -172,10 +219,10 @@ function Get-FileIntegrityHash {
                     $powershell.RunspacePool = $runspacePool
                     
                     $null = $jobs.Add([PSCustomObject]@{
-                        PowerShell = $powershell
-                        Handle     = $powershell.BeginInvoke()
-                        File       = $file.Name
-                    })
+                            PowerShell = $powershell
+                            Handle     = $powershell.BeginInvoke()
+                            File       = $file.Name
+                        })
                 }
                 
                 # Collect results with progress reporting
@@ -198,10 +245,11 @@ function Get-FileIntegrityHash {
                                     foreach ($res in $resultCollection) {
                                         if ($null -eq $res) { continue }
 
-                                        $cacheKey = "$($res.RelativePath)|$($res.Size)|$($res.LastWriteTime)"
-                                        if ($cache.ContainsKey($cacheKey)) {
+                                        # Use explicit CacheHit property when available (set by the worker)
+                                        if ($res.PSObject.Properties['CacheHit'] -and $res.CacheHit) {
                                             $cacheHits++
-                                        } else {
+                                        }
+                                        else {
                                             $cacheMisses++
                                         }
 
@@ -251,10 +299,17 @@ function Get-FileIntegrityHash {
                 
                 $relativePath = $item.Name
                 
-                # Check cache for single file
-                $cacheKey = "$relativePath|$($item.Length)|$($item.LastWriteTime)"
+                # Check cache for single file (normalise LastWriteTime)
+                if ($item.LastWriteTime -is [DateTime]) {
+                    $lastWriteTimeStr = $item.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss.fff')
+                }
+                else {
+                    $lastWriteTimeStr = $item.LastWriteTime.ToString()
+                }
+
+                $cacheKey = "$relativePath|$($item.Length)|$lastWriteTimeStr"
                 $cached = $null
-                
+
                 if ($cache.TryGetValue($cacheKey, [ref]$cached)) {
                     Write-Verbose "Cache hit for single file"
                     

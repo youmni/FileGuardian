@@ -408,7 +408,7 @@ function Invoke-FileGuardian {
                 'Cleanup' {
                     Write-Log -Message "Starting retention cleanup..." -Level Info
                     
-                    # Load config to get backup settings using Read-Config (assumed available)
+                    # Load config to get backup settings using Read-Config
                     if ($ConfigPath) {
                         $config = Read-Config -ConfigPath $ConfigPath
                     }

@@ -56,36 +56,67 @@ function Save-IntegrityState {
 
             # Get current hashes
             Write-Verbose "Calculating file hashes..."
-            $hashes = Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $StateDirectory
-            
-            # Create state object
-                # Ensure $hashes is always an array (wrap single object)
-                $hashes = @($hashes) | Where-Object { $_ -ne $null }
+            $rawHashes = @(Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $StateDirectory)
+            $rawHashes = $rawHashes | Where-Object { $_ -ne $null }
 
-                # Calculate file count (exclude nulls)
-                $fileCount = ($hashes | Where-Object { $_ } ).Count
+            # Normalize entries to ensure stable keys for caching and JSON serialization
+            $normalizedFiles = @()
+            foreach ($h in $rawHashes) {
+                if ($null -eq $h) { continue }
 
-                # Robust total size calculation: support objects with 'Size' or 'Length'
-                $totalSize = 0
-                foreach ($h in $hashes) {
-                    if ($null -eq $h) { continue }
-                    if ($h.PSObject.Properties.Name -contains 'Size') {
-                        $totalSize += [long]$h.Size
-                    }
-                    elseif ($h.PSObject.Properties.Name -contains 'Length') {
-                        $totalSize += [long]$h.Length
-                    }
-                    else {
-                    }
+                # Normalise RelativePath (no leading slashes)
+                $rel = $h.RelativePath
+                if ($rel) { $rel = $rel.TrimStart('\','/') }
+
+                # Ensure Size exists (support 'Size' or 'Length')
+                if ($h.PSObject.Properties.Name -contains 'Size') {
+                    $size = [long]$h.Size
+                }
+                elseif ($h.PSObject.Properties.Name -contains 'Length') {
+                    $size = [long]$h.Length
+                }
+                else {
+                    $size = 0
                 }
 
-                $state = [PSCustomObject]@{
-                    Timestamp = Get-Date -Format "o"
-                    SourcePath = (Resolve-Path $SourcePath).Path
-                    FileCount = $fileCount
-                    TotalSize = $totalSize
-                    Files = $hashes
+                # Normalize LastWriteTime to consistent string with milliseconds
+                $lwt = $h.LastWriteTime
+                if ($lwt -is [DateTime]) {
+                    $lwtStr = $lwt.ToString('yyyy-MM-dd HH:mm:ss.fff')
                 }
+                else {
+                    try { $lwtStr = ([DateTime]::Parse($lwt)).ToString('yyyy-MM-dd HH:mm:ss.fff') }
+                    catch { $lwtStr = $lwt.ToString() }
+                }
+
+                $fileObj = [PSCustomObject]@{
+                    Path = $h.Path
+                    RelativePath = $rel
+                    Hash = $h.Hash
+                    Algorithm = $h.Algorithm
+                    Size = $size
+                    LastWriteTime = $lwtStr
+                }
+
+                if ($h.PSObject.Properties.Name -contains 'CacheHit') {
+                    $null = $fileObj | Add-Member -NotePropertyName 'CacheHit' -NotePropertyValue $h.CacheHit -PassThru
+                }
+
+                $normalizedFiles += $fileObj
+            }
+
+            # Calculate counts and totals from normalized entries
+            $fileCount = $normalizedFiles.Count
+            $totalSize = 0
+            if ($fileCount -gt 0) { $totalSize = ($normalizedFiles | Measure-Object -Property Size -Sum).Sum }
+
+            $state = [PSCustomObject]@{
+                Timestamp = Get-Date -Format "o"
+                SourcePath = (Resolve-Path $SourcePath).Path
+                FileCount = $fileCount
+                TotalSize = $totalSize
+                Files = $normalizedFiles
+            }
             
             # Rotate: latest -> prev
             if (Test-Path $latestFile) {
