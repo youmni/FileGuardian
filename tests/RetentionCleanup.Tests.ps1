@@ -4,7 +4,7 @@ BeforeAll {
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
     # Dot-source functions under test
-    $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
+    $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Retention"
     . (Join-Path $script:CleanupModulePath "Invoke-BackupRetention.ps1")
     . (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.ps1")
 
@@ -36,9 +36,14 @@ Describe "Invoke-RetentionCleanup" {
             # Make it older than retention (set CreationTime)
             (Get-Item $oldBackup).CreationTime = (Get-Date).AddDays(-30)
 
+            # Create a recent backup
+            $recentBackup = Join-Path $script:backupDir "TestBackup_CURRENT"
+            New-Item -Path $recentBackup -ItemType Directory -Force | Out-Null
+
             Invoke-RetentionCleanup -ConfigPath $script:configPath
 
             Test-Path $oldBackup | Should -Be $false
+            Test-Path $recentBackup | Should -Be $true
         }
 
         It "does not remove backups for disabled entry" {

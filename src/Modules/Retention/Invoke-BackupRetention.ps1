@@ -35,8 +35,8 @@ function Invoke-BackupRetention {
         [Parameter(Mandatory = $true)]
         [int]$RetentionDays,
         
-        [Parameter()]
-        [string]$BackupName
+        [Parameter(Mandatory = $false)]
+        [string]$BackupName = $null
     )
     
     begin {

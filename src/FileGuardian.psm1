@@ -406,63 +406,27 @@ function Invoke-FileGuardian {
                 }
                 
                 'Cleanup' {
-                    Write-Log -Message "Starting retention cleanup..." -Level Info
-                    
-                    # Load config to get backup settings using Read-Config
-                    if ($ConfigPath) {
-                        $config = Read-Config -ConfigPath $ConfigPath
-                    }
-                    else {
-                        $config = Read-Config
+                    if (-not $PSBoundParameters.ContainsKey('BackupName') -or [string]::IsNullOrWhiteSpace($BackupName)) {
+                        throw "BackupName is required for Cleanup action"
                     }
 
-                    if (-not $config -or -not $config.ScheduledBackups) {
-                        throw "No scheduled backups found in configuration."
-                    }
-                    
-                    # Find the backup configuration
-                    $backupConfig = $config.ScheduledBackups | Where-Object { $_.Name -eq $BackupName }
-                    if (-not $backupConfig) {
-                        throw "Backup '$BackupName' not found in configuration."
-                    }
-                    
-                    # Determine retention days
-                    $days = if ($RetentionDays) {
-                        $RetentionDays
-                    } elseif ($backupConfig.RetentionDays) {
-                        $backupConfig.RetentionDays
-                    } elseif ($config.BackupSettings.RetentionDays) {
-                        $config.BackupSettings.RetentionDays
-                    } else {
-                        throw "No RetentionDays configured for backup: $BackupName"
-                    }
-                    
-                    # Determine backup directory
-                    $backupDir = if ($CleanupBackupDirectory) {
-                        $CleanupBackupDirectory
-                    } elseif ($backupConfig.BackupPath) {
-                        $backupConfig.BackupPath
-                    } elseif ($config.BackupSettings.DestinationPath) {
-                        $config.BackupSettings.DestinationPath
-                    } else {
-                        throw "No backup directory configured for: $BackupName"
-                    }
-                    
-                    if (-not (Test-Path $backupDir)) {
-                        throw "Backup directory not found: $backupDir"
-                    }
-                    
-                    Write-Log -Message "Cleaning up backups in: $backupDir (RetentionDays: $days)" -Level Info
-                    
-                    # Perform cleanup
-                    $result = Invoke-BackupRetention -BackupDirectory $backupDir -RetentionDays $days -BackupName $BackupName
-                    
-                    if ($result.DeletedCount -gt 0) {
+                    Write-Log -Message "Starting retention cleanup..." -Level Info
+
+                    $cleanupParams = @{}
+                    if ($ConfigPath) { $cleanupParams.ConfigPath = $ConfigPath }
+                    if ($BackupName) { $cleanupParams.BackupName = $BackupName }
+                    if ($CleanupBackupDirectory) { $cleanupParams.CleanupBackupDirectory = $CleanupBackupDirectory }
+                    if ($RetentionDays) { $cleanupParams.RetentionDays = $RetentionDays }
+                    if ($Quiet) { $cleanupParams.Quiet = $true }
+
+                    $result = Invoke-BackupCleanup @cleanupParams
+
+                    if ($result -and $result.DeletedCount -gt 0) {
                         Write-Log -Message "Cleanup completed: Deleted $($result.DeletedCount) backup(s), freed $($result.FreedSpaceMB) MB" -Level Success
                     } else {
                         Write-Log -Message "Cleanup completed: No backups exceeded retention period" -Level Info
                     }
-                    
+
                     return $result
                 }
             }
