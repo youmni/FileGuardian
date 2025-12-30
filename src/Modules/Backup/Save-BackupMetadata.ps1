@@ -51,6 +51,9 @@ function Save-BackupMetadata {
         ,
         [Parameter()]
         [string[]]$DeletedFiles
+        ,
+        [Parameter()]
+        [string[]]$Files
     )
     
     try {
@@ -68,6 +71,11 @@ function Save-BackupMetadata {
         if ($DeletedFiles -and $DeletedFiles.Count -gt 0) {
             $metadata['DeletedFiles'] = $DeletedFiles
             $metadata['DeletedCount'] = $DeletedFiles.Count
+        }
+
+        if ($Files -and $Files.Count -gt 0) {
+            $metadata['FilesIncluded'] = $Files
+            $metadata['FilesIncludedCount'] = $Files.Count
         }
         
         $metadata | ConvertTo-Json -Depth 10 | Set-Content -Path $TargetPath -Encoding UTF8

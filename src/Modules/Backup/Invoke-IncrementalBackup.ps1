@@ -294,7 +294,7 @@ function Invoke-IncrementalBackup {
             
             # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
-            Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp -DeletedFiles $deletedFiles
+            Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp -DeletedFiles $deletedFiles -Files ($filesToBackup | ForEach-Object { $_.RelativePath })
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
             
             # Handle compression or return direct copy info
