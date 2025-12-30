@@ -8,11 +8,10 @@ function Test-PreviousBackups {
         destination directory. Returns information about corrupted and verified backups.
     
     .PARAMETER BackupDestination
-        The path to the backup (current backup being created).
+        The path to the backup.
     
     .PARAMETER SourcePath
         The source path that was backed up (for verification).
-    
     
     .OUTPUTS
         PSCustomObject with verification results.

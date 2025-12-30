@@ -31,8 +31,7 @@ function Invoke-FullBackup {
 
     .PARAMETER ReportPath
         Optional path or file name for the generated backup report. If provided,
-        the report writer will save the report to this path. If omitted, the
-        destination is taken from configuration (`ReportOutputPath`) or defaults.
+        the report writer will save the report to this path.
     
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data"
@@ -41,9 +40,6 @@ function Invoke-FullBackup {
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data" -DestinationPath "D:\Backups"
         Override destination from config
-    
-    .EXAMPLE
-        Invoke-FullBackup -Compress -BackupName "MyBackup" -ReportFormat "JSON"
     #>
     [CmdletBinding()]
     param(
@@ -177,7 +173,7 @@ function Invoke-FullBackup {
             
             Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
-            # Save backup metadata for integrity verification BEFORE compression
+            # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Full" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info

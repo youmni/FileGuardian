@@ -136,7 +136,6 @@ function Test-BackupIntegrity {
             
             $currentHash = @{}
             foreach ($file in $currentHashes) {
-                # Use the RelativePath property directly (already calculated correctly)
                 $relativePath = $file.RelativePath
                 $currentHash[$relativePath] = $file
             }

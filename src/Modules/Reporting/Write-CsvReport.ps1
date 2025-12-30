@@ -92,7 +92,7 @@ function Write-CsvReport {
                 "N/A" 
             }
             
-            # File change statistics - only populate for Incremental backups
+            # File change statistics, only populate for Incremental backups
             if ($BackupInfo.Type -and $BackupInfo.Type -eq 'Incremental') {
                 $filesChanged = if ($BackupInfo.FilesChanged) { $BackupInfo.FilesChanged } else { 0 }
                 $filesNew = if ($BackupInfo.FilesNew) { $BackupInfo.FilesNew } else { 0 }
