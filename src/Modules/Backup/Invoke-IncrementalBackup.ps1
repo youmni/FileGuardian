@@ -178,7 +178,7 @@ function Invoke-IncrementalBackup {
             # Get current state of source files (heavy operation)
             Write-Log -Message "Scanning source directory and calculating hashes..." -Level Info
             Write-Progress -Activity "Hashing files" -Status "Calculating hashes..." -PercentComplete 0
-            $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse
+            $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $stateDir
             Write-Progress -Activity "Hashing files" -Completed
             Write-Log -Message "Calculated current hashes: $($currentFiles.Count) files" -Level Info
             
@@ -292,7 +292,7 @@ function Invoke-IncrementalBackup {
             
             Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
             
-            # Save backup metadata for integrity verification BEFORE compression
+            # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
@@ -360,7 +360,7 @@ function Invoke-IncrementalBackup {
             }
             
             # Verify previous backups integrity
-            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
+            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK

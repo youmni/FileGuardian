@@ -56,16 +56,36 @@ function Save-IntegrityState {
 
             # Get current hashes
             Write-Verbose "Calculating file hashes..."
-            $hashes = Get-FileIntegrityHash -Path $SourcePath -Recurse
+            $hashes = Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $StateDirectory
             
             # Create state object
-            $state = [PSCustomObject]@{
-                Timestamp = Get-Date -Format "o"
-                SourcePath = (Resolve-Path $SourcePath).Path
-                FileCount = $hashes.Count
-                TotalSize = ($hashes | Measure-Object -Property Size -Sum).Sum
-                Files = $hashes
-            }
+                # Ensure $hashes is always an array (wrap single object)
+                $hashes = @($hashes) | Where-Object { $_ -ne $null }
+
+                # Calculate file count (exclude nulls)
+                $fileCount = ($hashes | Where-Object { $_ } ).Count
+
+                # Robust total size calculation: support objects with 'Size' or 'Length'
+                $totalSize = 0
+                foreach ($h in $hashes) {
+                    if ($null -eq $h) { continue }
+                    if ($h.PSObject.Properties.Name -contains 'Size') {
+                        $totalSize += [long]$h.Size
+                    }
+                    elseif ($h.PSObject.Properties.Name -contains 'Length') {
+                        $totalSize += [long]$h.Length
+                    }
+                    else {
+                    }
+                }
+
+                $state = [PSCustomObject]@{
+                    Timestamp = Get-Date -Format "o"
+                    SourcePath = (Resolve-Path $SourcePath).Path
+                    FileCount = $fileCount
+                    TotalSize = $totalSize
+                    Files = $hashes
+                }
             
             # Rotate: latest -> prev
             if (Test-Path $latestFile) {

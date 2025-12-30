@@ -1,11 +1,13 @@
 function Get-FileIntegrityHash {
     <#
     .SYNOPSIS
-        Calculates hash for a file or all files in a directory.
+        Calculates hash for a file or all files in a directory with parallel processing and caching.
     
     .DESCRIPTION
-        Generates SHA256 hashes for files to track integrity.
-        Can process single files or entire directory trees.
+        Generates SHA256 hashes for files to track integrity with significant performance improvements:
+        - Parallel processing using runspaces for concurrent hash calculations
+        - Smart caching that reuses hashes for unchanged files (based on LastWriteTime and Size)
+        - Thread-safe operations to prevent race conditions
         
         IMPORTANT: This function guarantees consistent relative path calculation
         across multiple runs to prevent phantom "file added/removed" issues.
@@ -19,13 +21,20 @@ function Get-FileIntegrityHash {
     .PARAMETER Recurse
         Process directories recursively.
     
+    .PARAMETER StateDirectory
+        Optional. Directory containing state files (latest.json) for caching.
+        If provided, the function will automatically load and use cached hashes.
+    
+    .PARAMETER MaxParallelJobs
+        Maximum number of parallel hash calculations. Default is number of CPU cores.
+    
     .EXAMPLE
         Get-FileIntegrityHash -Path "C:\Data"
         Get hashes for all files in C:\Data
     
     .EXAMPLE
-        Get-FileIntegrityHash -Path "C:\Data" -Recurse
-        Get hashes for all files in C:\Data and subdirectories
+        Get-FileIntegrityHash -Path "C:\Data" -Recurse -StateDirectory "C:\Backups\states"
+        Get hashes with automatic caching from latest.json in state directory
     #>
     [CmdletBinding()]
     param(
@@ -38,12 +47,44 @@ function Get-FileIntegrityHash {
         [string]$Algorithm = 'SHA256',
         
         [Parameter()]
-        [switch]$Recurse
+        [switch]$Recurse,
+        
+        [Parameter()]
+        [string]$StateDirectory,
+        
+        [Parameter()]
+        [int]$MaxParallelJobs = [Environment]::ProcessorCount
     )
     
     Begin {
-        Write-Log -Message "Starting hash calculation for: $Path (Algorithm: $Algorithm)" -Level Info
-        $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+        Write-Log -Message "Starting optimized hash calculation for: $Path (Algorithm: $Algorithm, MaxJobs: $MaxParallelJobs)" -Level Info
+        $results = [System.Collections.Concurrent.ConcurrentBag[PSCustomObject]]::new()
+        
+        # Build cache lookup from state directory (thread-safe dictionary)
+        $cache = [System.Collections.Concurrent.ConcurrentDictionary[string, PSCustomObject]]::new()
+        
+        # Auto-load previous state if StateDirectory is provided
+        $previousState = $null
+        if ($StateDirectory -and (Test-Path $StateDirectory)) {
+            $latestStateFile = Join-Path $StateDirectory "latest.json"
+            if (Test-Path $latestStateFile) {
+                try {
+                    $previousState = Get-Content -Path $latestStateFile -Raw | ConvertFrom-Json
+                    Write-Verbose "Loaded previous state from: $latestStateFile"
+                }
+                catch {
+                    Write-Warning "Failed to load previous state: $_"
+                }
+            }
+        }
+        
+        if ($previousState -and $previousState.Files) {
+            foreach ($file in $previousState.Files) {
+                $cacheKey = "$($file.RelativePath)|$($file.Size)|$($file.LastWriteTime)"
+                $null = $cache.TryAdd($cacheKey, $file)
+            }
+            Write-Verbose "Loaded $($cache.Count) cached entries from previous state"
+        }
     }
     
     Process {
@@ -54,88 +95,196 @@ function Get-FileIntegrityHash {
                 # Directory - get all files
                 Write-Verbose "Processing directory: $($item.FullName)"
                 
-                # Stream files instead of loading all into memory
                 $childParams = @{ Path = $Path; File = $true; ErrorAction = 'Stop' }
                 if ($Recurse) { $childParams['Recurse'] = $true }
 
-                # Count files with a streamed enumeration (does not keep objects in memory)
-                $totalFiles = (Get-ChildItem @childParams | Measure-Object).Count
+                # Collect all files first
+                $allFiles = @(Get-ChildItem @childParams)
+                $totalFiles = $allFiles.Count
+                
                 Write-Verbose "Found $totalFiles files to process"
                 Write-Log -Message "Calculating $Algorithm hashes for $totalFiles files in $Path" -Level Info
-                Write-Progress -Activity "Hashing files" -Status "Starting..." -PercentComplete 0
-
+                
                 if ($totalFiles -eq 0) {
                     Write-Log -Message "No files found in: $Path" -Level Warning
                     return @()
                 }
 
-                # Process files as a stream to avoid high memory usage
-                $processedCount = 0
-                Get-ChildItem @childParams | ForEach-Object {
-                    $file = $_
+                # Create runspace pool for parallel processing
+                $runspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxParallelJobs)
+                $runspacePool.Open()
+                
+                # Script block for parallel hash calculation
+                $scriptBlock = {
+                    param($FilePath, $FileSize, $FileLastWrite, $BaseDir, $Algorithm, $CacheDict)
+                    
                     try {
-                        $hash = Get-FileHash -Path $file.FullName -Algorithm $Algorithm -ErrorAction Stop
-
-                        $relativePath = Get-ConsistentRelativePath -BasePath $item.FullName -FullPath $file.FullName
-
-                        $fileInfo = [PSCustomObject]@{
-                            Path          = $file.FullName
+                        # Calculate relative path
+                        $baseNormalized = $BaseDir.ToUpperInvariant().TrimEnd('\')
+                        $fileNormalized = $FilePath.ToUpperInvariant()
+                        
+                        if (-not $fileNormalized.StartsWith($baseNormalized, [StringComparison]::OrdinalIgnoreCase)) {
+                            throw "File path '$FilePath' is not under base path '$BaseDir'"
+                        }
+                        
+                        $relativePath = $FilePath.Substring($BaseDir.Length).TrimStart('\', '/')
+                        
+                        # Check cache
+                        $cacheKey = "$relativePath|$FileSize|$FileLastWrite"
+                        $cached = $null
+                        
+                        if ($CacheDict.TryGetValue($cacheKey, [ref]$cached)) {
+                            # Cache hit - reuse hash
+                            return [PSCustomObject]@{
+                                Path          = $FilePath
+                                RelativePath  = $relativePath
+                                Hash          = $cached.Hash
+                                Algorithm     = $Algorithm
+                                Size          = $FileSize
+                                LastWriteTime = $FileLastWrite
+                                CacheHit      = $true
+                            }
+                        }
+                        
+                        # Cache miss - calculate hash
+                        $hash = Get-FileHash -Path $FilePath -Algorithm $Algorithm -ErrorAction Stop
+                        
+                        return [PSCustomObject]@{
+                            Path          = $FilePath
                             RelativePath  = $relativePath
                             Hash          = $hash.Hash
                             Algorithm     = $Algorithm
-                            Size          = $file.Length
-                            LastWriteTime = $file.LastWriteTime
-                        }
-
-                        $results.Add($fileInfo)
-
-                        $processedCount++
-
-                        if ($processedCount % 100 -eq 0) {
-                            if ($totalFiles -gt 0) {
-                                $percent = [math]::Round(($processedCount / $totalFiles) * 100, 0)
-                                Write-Verbose "Progress: $processedCount / $totalFiles files hashed"
-                                Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount of $totalFiles" -PercentComplete $percent
-                            }
-                            else {
-                                Write-Progress -Activity "Hashing files" -Status "Hashed $processedCount files"
-                            }
+                            Size          = [long]$FileSize
+                            LastWriteTime = $FileLastWrite
                         }
                     }
                     catch {
-                        Write-Log -Message "Failed to hash file '$($file.FullName)': $_" -Level Warning
-                        continue
+                        Write-Warning "Failed to hash file '$FilePath': $_"
+                        return $null
                     }
                 }
                 
-                Write-Progress -Activity "Hashing files" -Completed
-                Write-Log -Message "Hashed $processedCount files successfully" -Level Info
+                # Create jobs for each file
+                $jobs = [System.Collections.ArrayList]::new()
                 
-                # Return results as array (sorted by RelativePath for consistency)
-                return $results | Sort-Object -Property RelativePath
+                foreach ($file in $allFiles) {
+                    $powershell = [powershell]::Create().AddScript($scriptBlock).AddArgument($file.FullName).AddArgument($file.Length).AddArgument($file.LastWriteTime).AddArgument($item.FullName).AddArgument($Algorithm).AddArgument($cache)
+                    $powershell.RunspacePool = $runspacePool
+                    
+                    $null = $jobs.Add([PSCustomObject]@{
+                        PowerShell = $powershell
+                        Handle     = $powershell.BeginInvoke()
+                        File       = $file.Name
+                    })
+                }
+                
+                # Collect results with progress reporting
+                $completed = 0
+                $cacheHits = 0
+                $cacheMisses = 0
+                
+                Write-Progress -Activity "Hashing files" -Status "Processing..." -PercentComplete 0
+                
+                while ($jobs.Count -gt 0) {
+                    # Check for completed jobs
+                    for ($i = $jobs.Count - 1; $i -ge 0; $i--) {
+                        $job = $jobs[$i]
+                        
+                        if ($job.Handle.IsCompleted) {
+                            try {
+                                $resultCollection = $job.PowerShell.EndInvoke($job.Handle)
+
+                                if ($resultCollection) {
+                                    foreach ($res in $resultCollection) {
+                                        if ($null -eq $res) { continue }
+
+                                        $cacheKey = "$($res.RelativePath)|$($res.Size)|$($res.LastWriteTime)"
+                                        if ($cache.ContainsKey($cacheKey)) {
+                                            $cacheHits++
+                                        } else {
+                                            $cacheMisses++
+                                        }
+
+                                        $null = $results.Add($res)
+                                    }
+                                }
+                                
+                                $completed++
+                                
+                                if ($completed % 50 -eq 0 -or $completed -eq $totalFiles) {
+                                    $percent = [math]::Round(($completed / $totalFiles) * 100, 0)
+                                    $status = "Processed $completed of $totalFiles (Cache: $cacheHits hits, $cacheMisses misses)"
+                                    Write-Progress -Activity "Hashing files" -Status $status -PercentComplete $percent
+                                    Write-Verbose $status
+                                }
+                            }
+                            catch {
+                                Write-Warning "Job failed for file '$($job.File)': $_"
+                            }
+                            finally {
+                                $job.PowerShell.Dispose()
+                                $jobs.RemoveAt($i)
+                            }
+                        }
+                    }
+                    
+                    # Small sleep to prevent CPU spinning
+                    Start-Sleep -Milliseconds 50
+                }
+                
+                Write-Progress -Activity "Hashing files" -Completed
+                
+                # Cleanup runspace pool
+                $runspacePool.Close()
+                $runspacePool.Dispose()
+                
+                Write-Log -Message "Hashed $completed files successfully (Cache hits: $cacheHits, misses: $cacheMisses)" -Level Info
+                
+                # Convert to array and sort by RelativePath for consistency
+                $resultArray = $results.ToArray() | Sort-Object -Property RelativePath
+                
+                return $resultArray
             }
             else {
-                # Single file
+                # Single file - no parallelization needed
                 Write-Verbose "Processing single file: $($item.FullName)"
                 
+                $relativePath = $item.Name
+                
+                # Check cache for single file
+                $cacheKey = "$relativePath|$($item.Length)|$($item.LastWriteTime)"
+                $cached = $null
+                
+                if ($cache.TryGetValue($cacheKey, [ref]$cached)) {
+                    Write-Verbose "Cache hit for single file"
+                    
+                    $fileInfo = [PSCustomObject]@{
+                        Path          = $item.FullName
+                        RelativePath  = $relativePath
+                        Hash          = $cached.Hash
+                        Algorithm     = $Algorithm
+                        Size          = [long]$item.Length
+                        LastWriteTime = $item.LastWriteTime
+                    }
+                    
+                    Write-Log -Message "Hashed single file successfully (cache hit)" -Level Info
+                    return $fileInfo
+                }
+                
+                # Calculate hash
                 try {
                     $hash = Get-FileHash -Path $item.FullName -Algorithm $Algorithm -ErrorAction Stop
-                    
-                    # For single file, relative path is just the filename
-                    $relativePath = $item.Name
                     
                     $fileInfo = [PSCustomObject]@{
                         Path          = $item.FullName
                         RelativePath  = $relativePath
                         Hash          = $hash.Hash
                         Algorithm     = $Algorithm
-                        Size          = $item.Length
+                        Size          = [long]$item.Length
                         LastWriteTime = $item.LastWriteTime
                     }
                     
-                    Write-Progress -Activity "Hashing files" -Completed
                     Write-Log -Message "Hashed single file successfully" -Level Info
-                    
                     return $fileInfo
                 }
                 catch {
