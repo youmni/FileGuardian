@@ -2,15 +2,19 @@ BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:BackupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
+    $script:ReportingModulePath = Join-Path $ProjectRoot "src\Modules\Reporting"
+    $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
     
     # Import Logging module first (dependency)
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
-    
-    # Import all Backup module .psm1 files (helpers and public)
-    Get-ChildItem -Path $script:BackupModulePath -Filter '*.psm1' | ForEach-Object {
-        Import-Module $_.FullName -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
+
+    Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
+        . $_.FullName
     }
-    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force
+    . (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1")
+    # Dot-source reporting and integrity helpers used by backup workflow
+    Get-ChildItem -Path $script:ReportingModulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
+    Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
     
     # Define helper function in BeforeAll scope
     function script:New-TestData {

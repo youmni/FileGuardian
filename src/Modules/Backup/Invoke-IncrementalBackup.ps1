@@ -32,6 +32,11 @@ function Invoke-IncrementalBackup {
     .PARAMETER ReportFormat
         Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
     
+    .PARAMETER ReportPath
+        Optional path or file name for the generated backup report. If provided,
+        the report writer will save the report to this path. If omitted, the
+        destination is taken from configuration (`ReportOutputPath`) or defaults.
+    
     .EXAMPLE
         Invoke-IncrementalBackup -SourcePath "C:\Data"
         Backs up only changed files since last backup, or automatically performs full backup if none exists
@@ -43,7 +48,7 @@ function Invoke-IncrementalBackup {
     .NOTES
         - If no previous backup state exists, automatically performs a full backup first
         - Reports are always generated and digitally signed
-        - Backup chain: Full -> Incremental -> Incremental -> Incremental -> Full (recommended)
+        - Backup chain: Full -> Incremental -> Incremental -> Incremental -> Full
     #>
     [CmdletBinding()]
     param(
@@ -111,10 +116,6 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "No previous backup state found. Performing full backup instead." -Level Warning
         }
         
-        # Import integrity helpers directly so required functions are available
-        $integrityHashModule = Join-Path $PSScriptRoot "..\Integrity\Get-FileIntegrityHash.psm1"
-        Import-Module $integrityHashModule -Force -ErrorAction Stop
-        Write-Log -Message "Loaded integrity functions from: $integrityHashModule" -Level Info
 
         Write-Log -Message "Starting incremental backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
@@ -143,7 +144,7 @@ function Invoke-IncrementalBackup {
             
             # If source mismatch, delegate to full backup
             if ($script:performFullBackupFallback) {
-                Write-Log -Message "Delegating to full backup due to missing or mismatched state" -Level Info
+                Write-Log -Message "Delegating to full backup due to missing or mismatched state. This can happen there was no previous full backup." -Level Info
                 
                 $fullBackupParams = @{
                     SourcePath = $SourcePath
@@ -177,7 +178,7 @@ function Invoke-IncrementalBackup {
             # Get current state of source files (heavy operation)
             Write-Log -Message "Scanning source directory and calculating hashes..." -Level Info
             Write-Progress -Activity "Hashing files" -Status "Calculating hashes..." -PercentComplete 0
-            $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse
+            $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $stateDir
             Write-Progress -Activity "Hashing files" -Completed
             Write-Log -Message "Calculated current hashes: $($currentFiles.Count) files" -Level Info
             
@@ -263,8 +264,8 @@ function Invoke-IncrementalBackup {
             Write-Log -Message "Changes detected: $($changedFiles.Count) modified, $($newFiles.Count) new, $($deletedFiles.Count) deleted" -Level Info
             Write-Log -Message "Backing up $totalFiles files (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)" -Level Info
             
-            # Copy files to temporary or final destination
-            $tempDir = Join-Path $env:TEMP "FileGuardian_$timestamp"
+            # Copy files to temporary or final destination (use unique temp folder to avoid collisions)
+            $tempDir = Join-Path $env:TEMP ("FileGuardian_{0}_{1}" -f $timestamp, [IO.Path]::GetRandomFileName())
             $finalDestination = if ($Compress) { $tempDir } else { $backupDestination }
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
@@ -291,7 +292,7 @@ function Invoke-IncrementalBackup {
             
             Write-Log -Message "Incremental backup completed successfully - $copiedFiles files copied" -Level Success
             
-            # Save backup metadata for integrity verification BEFORE compression
+            # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
@@ -359,7 +360,7 @@ function Invoke-IncrementalBackup {
             }
             
             # Verify previous backups integrity
-            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
+            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
@@ -371,8 +372,6 @@ function Invoke-IncrementalBackup {
                 $backupInfo['Duration'] = $endTime - $startTime
             }
 
-            $reportHelperModule = Join-Path $PSScriptRoot "New-BackupReport.psm1"
-            Import-Module $reportHelperModule -Force
 
             $backupInfo = New-BackupReport -BackupInfo $backupInfo -ReportFormat $ReportFormat -ReportPath $ReportPath
             
@@ -381,6 +380,12 @@ function Invoke-IncrementalBackup {
         catch {
             Write-Error "Incremental backup failed: $_"
             throw
+        }
+        finally {
+            # Ensure temporary directory is removed if it exists (cleanup on errors or if compression didn't remove it)
+            if ($Compress -and $tempDir -and (Test-Path $tempDir)) {
+                try { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction Stop } catch { Write-Log -Message ("Failed to cleanup tempDir: {0}. {1}" -f $tempDir, $_.Exception.Message) -Level Warning }
+            }
         }
     }
 }

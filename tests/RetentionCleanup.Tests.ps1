@@ -1,11 +1,12 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Import function under test
-    $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
-    Import-Module (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.psm1") -Force
+    # Dot-source functions under test
+    $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Retention"
+    . (Join-Path $script:CleanupModulePath "Invoke-BackupRetention.ps1")
+    . (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.ps1")
 
     # Prepare test paths
     $script:configPath = Join-Path $TestDrive "backup-config.json"
@@ -35,9 +36,14 @@ Describe "Invoke-RetentionCleanup" {
             # Make it older than retention (set CreationTime)
             (Get-Item $oldBackup).CreationTime = (Get-Date).AddDays(-30)
 
+            # Create a recent backup
+            $recentBackup = Join-Path $script:backupDir "TestBackup_CURRENT"
+            New-Item -Path $recentBackup -ItemType Directory -Force | Out-Null
+
             Invoke-RetentionCleanup -ConfigPath $script:configPath
 
             Test-Path $oldBackup | Should -Be $false
+            Test-Path $recentBackup | Should -Be $true
         }
 
         It "does not remove backups for disabled entry" {

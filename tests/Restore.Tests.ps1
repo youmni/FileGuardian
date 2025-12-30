@@ -4,11 +4,11 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
 
     # Import Logging module dependency
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Import all Restore module helpers/public functions
-    Get-ChildItem -Path $script:RestoreModulePath -Filter '*.psm1' | ForEach-Object {
-        Import-Module $_.FullName -Force
+    # Dot-source all Restore module helpers/public functions
+    Get-ChildItem -Path $script:RestoreModulePath -Filter '*.ps1' | ForEach-Object {
+        . $_.FullName
     }
 
     function script:New-RestoreBackupFolder {
@@ -122,6 +122,13 @@ Describe "Restore Module" {
             $resolved | Where-Object { $_.IsZip } | Should -Not -BeNullOrEmpty
             $resolved | Where-Object { -not $_.IsZip } | Should -Not -BeNullOrEmpty
             $resolved | ForEach-Object { $_.Timestamp -is [DateTime] | Should -BeTrue }
+
+            # Cleanup any extracted temporary folders created by Resolve-Backups to avoid leaving temp artifacts
+            foreach ($r in $resolved | Where-Object { $_.IsZip }) {
+                if ($r.ExtractPath -and (Test-Path $r.ExtractPath)) {
+                    Remove-Item -Path $r.ExtractPath -Recurse -Force
+                }
+            }
         }
 
         It "Should apply backups into restore directory and remove metadata files with Invoke-Restore" {

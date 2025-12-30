@@ -68,10 +68,7 @@ function Test-BackupIntegrity {
             # Load state
             Write-Verbose "Loading integrity state from: $stateFile"
             $state = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
-            
-            # Import Get-FileIntegrityHash
-            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.psm1") -Force
-            
+                        
             # Check if backup is a ZIP file
             $isZip = $false
             $tempExtractPath = $null
@@ -82,8 +79,8 @@ function Test-BackupIntegrity {
                 Write-Log -Message "Backup is compressed (ZIP). Extracting for verification..." -Level Info
                 Write-Verbose "Backup is a ZIP archive, extracting..."
 
-                # Create temp directory for extraction
-                $tempExtractPath = Join-Path $env:TEMP "FileGuardian_Verify_$(Get-Date -Format 'yyyyMMddHHmmss')"
+                # Create temp directory for extraction (unique name to avoid collisions)
+                $tempExtractPath = Join-Path $env:TEMP ("FileGuardian_Verify_{0}_{1}" -f (Get-Date -Format 'yyyyMMddHHmmss'), [IO.Path]::GetRandomFileName())
                 New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
 
                 # Show extraction progress stub and extract
@@ -119,10 +116,10 @@ function Test-BackupIntegrity {
                 Write-Verbose "No metadata found, assuming Full backup"
             }
             
-            # Calculate current hashes for backup (heavy operation)
+            # Calculate current hashes for backup
             Write-Log -Message "Calculating current hashes for backup: $absoluteBackupPath" -Level Info
             Write-Progress -Activity "Verifying backup" -Status "Calculating hashes..." -PercentComplete 0
-            $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -Recurse
+            $currentHashes = Get-FileIntegrityHash -Path $absoluteBackupPath -StateDirectory $StateDirectory -Recurse
             Write-Progress -Activity "Verifying backup" -Completed
             Write-Log -Message "Calculated current hashes: $($currentHashes.Count) files" -Level Info
             
@@ -139,7 +136,6 @@ function Test-BackupIntegrity {
             
             $currentHash = @{}
             foreach ($file in $currentHashes) {
-                # Use the RelativePath property directly (already calculated correctly)
                 $relativePath = $file.RelativePath
                 $currentHash[$relativePath] = $file
             }
@@ -153,8 +149,6 @@ function Test-BackupIntegrity {
             # Check files in state
             foreach ($path in $stateHash.Keys) {
                 if (-not $currentHash.ContainsKey($path)) {
-                    # For incremental/differential: missing files are expected (they weren't changed)
-                    # For full backup: missing files are an error
                     if (-not $isIncrementalOrDifferential) {
                         $missing += $stateHash[$path]
                     }

@@ -15,7 +15,7 @@ function Invoke-FullBackup {
         The destination directory where the backup will be stored. If not specified, uses config file.
     
     .PARAMETER ConfigPath
-        Path to the configuration file. Defaults to config/backup-config.json
+        Path to the configuration file. If not specified, uses environment variable or defaults.    
     
     .PARAMETER BackupName
         Optional name for the backup. Defaults to "FullBackup_YYYYMMDD_HHMMSS"
@@ -27,7 +27,11 @@ function Invoke-FullBackup {
         Array of file patterns to exclude from backup (e.g., "*.tmp", "*.log"). If not specified, uses config file.
     
     .PARAMETER ReportFormat
-        Format for the backup report. Default is JSON. Supported: JSON, HTML (future).
+        Format for the backup report. Default is JSON. Supported: JSON, HTML, CSV.
+
+    .PARAMETER ReportPath
+        Optional path or file name for the generated backup report. If provided,
+        the report writer will save the report to this path.
     
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data"
@@ -36,9 +40,6 @@ function Invoke-FullBackup {
     .EXAMPLE
         Invoke-FullBackup -SourcePath "C:\Data" -DestinationPath "D:\Backups"
         Override destination from config
-    
-    .EXAMPLE
-        Invoke-FullBackup -Compress -BackupName "MyBackup" -ReportFormat "JSON"
     #>
     [CmdletBinding()]
     param(
@@ -94,10 +95,7 @@ function Invoke-FullBackup {
             $BackupName = "${BackupName}_$timestamp"
         }
         
-        $backupDestination = Join-Path $DestinationPath $BackupName
-        
-        # Compress-Backup is available via manifest NestedModules
-        
+        $backupDestination = Join-Path $DestinationPath $BackupName        
         Write-Log -Message "Starting full backup from '$SourcePath' to '$backupDestination'" -Level Info
     }
     
@@ -117,12 +115,23 @@ function Invoke-FullBackup {
             Write-Log -Message "Scanning source directory..." -Level Info
             $files = Get-ChildItem -Path $SourcePath -Recurse -File
             $originalFileCount = $files.Count
-            
+
+            # Resolve source path to absolute
+            $absoluteSourcePath = (Resolve-Path $SourcePath).Path
+
             # Apply exclusions
-            if ($ExcludePatterns.Count -gt 0) {
+            if ($ExcludePatterns -and $ExcludePatterns.Count -gt 0) {
                 Write-Verbose "Applying exclusion patterns: $($ExcludePatterns -join ', ')"
-                foreach ($pattern in $ExcludePatterns) {
-                    $files = $files | Where-Object { $_.Name -notlike $pattern }
+                $files = $files | Where-Object {
+                    $relativePath = $_.FullName.Substring($absoluteSourcePath.Length).TrimStart([char]'\',[char]'/')
+                    $excluded = $false
+                    foreach ($pattern in $ExcludePatterns) {
+                        if ($relativePath -like $pattern) {
+                            $excluded = $true
+                            break
+                        }
+                    }
+                    -not $excluded
                 }
                 $excludedCount = $originalFileCount - $files.Count
                 if ($excludedCount -gt 0) {
@@ -137,16 +146,13 @@ function Invoke-FullBackup {
             Write-Log -Message "Found $totalFiles files to backup (Total size: $([Math]::Round($totalSize/1MB, 2)) MB)" -Level Info
             
             # Copy files to temporary or final destination
-            $tempDir = Join-Path $env:TEMP "FileGuardian_$timestamp"
+            $tempDir = Join-Path $env:TEMP ("FileGuardian_{0}_{1}" -f $timestamp, [IO.Path]::GetRandomFileName())
             $finalDestination = if ($Compress) { $tempDir } else { $backupDestination }
             
             New-Item -Path $finalDestination -ItemType Directory -Force | Out-Null
-            
-            # Resolve source path to absolute
-            $absoluteSourcePath = (Resolve-Path $SourcePath).Path
-            
+                        
             foreach ($file in $files) {
-                $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart('\')
+                $relativePath = $file.FullName.Substring($absoluteSourcePath.Length).TrimStart([char]'\')
                 $targetPath = Join-Path $finalDestination $relativePath
                 $targetDir = Split-Path $targetPath -Parent
 
@@ -167,7 +173,7 @@ function Invoke-FullBackup {
             
             Write-Log -Message "Full backup completed successfully - $copiedFiles files copied" -Level Success
             
-            # Save backup metadata for integrity verification BEFORE compression
+            # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
             Save-BackupMetadata -BackupType "Full" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
@@ -223,13 +229,13 @@ function Invoke-FullBackup {
             }
             
             # Verify previous backups integrity
-            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath -Compress $Compress
+            $verificationResult = Test-PreviousBackups -BackupDestination $backupInfo.DestinationPath -SourcePath $SourcePath
             $backupInfo['PreviousBackupsVerified'] = $verificationResult.VerifiedCount
             $backupInfo['CorruptedBackups'] = $verificationResult.CorruptedBackups
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             Write-Log -Message "Previous backups verification: Checked $($verificationResult.VerifiedCount), Corrupted $($verificationResult.CorruptedBackups.Count)" -Level Info
             
-            # Calculate duration and generate report (ALWAYS - this is mandatory)
+            # Calculate duration and generate report
             $endTime = Get-Date
             if ($startTime) {
                 $backupInfo['Duration'] = $endTime - $startTime
@@ -242,6 +248,12 @@ function Invoke-FullBackup {
         catch {
             Write-Error "Full backup failed: $_"
             throw
+        }
+        finally {
+            # Ensure temporary directory is removed if it exists
+            if ($Compress -and $tempDir -and (Test-Path $tempDir)) {
+                try { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction Stop } catch { Write-Log -Message ("Failed to cleanup tempDir: {0}. {1}" -f $tempDir, $_.Exception.Message) -Level Warning }
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 }
 
 Describe "Write-Log" {
@@ -91,7 +91,7 @@ Describe "Write-Log" {
             # This test verifies Write-Log can be called from any context
             $scriptBlock = {
                 param($LoggingModulePath)
-                Import-Module (Join-Path $LoggingModulePath "Write-Log.psm1") -Force
+                . (Join-Path $LoggingModulePath "Write-Log.ps1")
                 Write-Log -Message "Test from script block"
             }
             

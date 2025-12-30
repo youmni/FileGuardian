@@ -8,13 +8,10 @@ function Test-PreviousBackups {
         destination directory. Returns information about corrupted and verified backups.
     
     .PARAMETER BackupDestination
-        The path to the backup (current backup being created).
+        The path to the backup.
     
     .PARAMETER SourcePath
         The source path that was backed up (for verification).
-    
-    .PARAMETER Compress
-        Whether the backup was compressed.
     
     .OUTPUTS
         PSCustomObject with verification results.
@@ -25,32 +22,14 @@ function Test-PreviousBackups {
         [string]$BackupDestination,
         
         [Parameter(Mandatory = $true)]
-        [string]$SourcePath,
-        
-        [Parameter()]
-        [bool]$Compress
+        [string]$SourcePath
     )
     
     try {
-        Write-Log -Message "Verifying previous backups integrity..." -Level Info
-        $testIntegrityModule = Join-Path $PSScriptRoot "..\Integrity\Test-BackupIntegrity.psm1"
-        
-        if (-not (Test-Path $testIntegrityModule)) {
-            return [PSCustomObject]@{
-                VerifiedCount = 0
-                CorruptedBackups = @()
-                VerifiedBackupsOK = 0
-            }
-        }
-        
-        Import-Module $testIntegrityModule -Force
+        Write-Log -Message "Verifying previous backups integrity..." -Level Info        
         
         # Find all previous backups in the destination path
-        $backupDir = if ($Compress) { 
-            Split-Path $BackupDestination -Parent 
-        } else { 
-            Split-Path $BackupDestination -Parent 
-        }
+        $backupDir = Split-Path $BackupDestination -Parent 
         
         $corruptedBackups = @()
         $verifiedBackups = @()
@@ -60,11 +39,7 @@ function Test-PreviousBackups {
         
         if (Test-Path $backupDir) {
             # Get all backup directories and ZIP files (exclude current backup and states folder)
-            $currentBackupName = if ($Compress) { 
-                Split-Path $BackupDestination -Leaf 
-            } else { 
-                Split-Path $BackupDestination -Leaf 
-            }
+            $currentBackupName = Split-Path $BackupDestination -Leaf 
             
             $allBackupDirs = Get-ChildItem -Path $backupDir -Directory | 
                 Where-Object { $_.Name -ne "states" -and $_.Name -ne $currentBackupName }

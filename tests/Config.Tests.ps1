@@ -1,9 +1,9 @@
 BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
-    $LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging\Logging.psd1"
-    Import-Module $LoggingModulePath -Force
-    $ModulePath = Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1"
-    Import-Module $ModulePath -Force
+    $LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging\Write-Log.ps1"
+    . $LoggingModulePath
+    $ModulePath = Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1"
+    . $ModulePath
 }
 
 Describe "Read-Config" {
@@ -87,8 +87,35 @@ Describe "Read-Config" {
             # This will fail if default config doesn't exist, which is expected behavior
             $defaultPath = Join-Path $ProjectRoot "config\backup-config.json"
             if (Test-Path $defaultPath) {
-                $result = Read-Config
-                $result | Should -Not -BeNullOrEmpty
+                $oldEnv = $env:FILEGUARDIAN_CONFIG_PATH
+                try {
+                    $env:FILEGUARDIAN_CONFIG_PATH = $defaultPath
+                    $result = Read-Config
+                    $result | Should -Not -BeNullOrEmpty
+                }
+                finally {
+                    if ($null -ne $oldEnv) { $env:FILEGUARDIAN_CONFIG_PATH = $oldEnv } else { Remove-Item Env:FILEGUARDIAN_CONFIG_PATH -ErrorAction SilentlyContinue }
+                }
+            }
+        }
+
+        It "Should prefer -ConfigPath over FILEGUARDIAN_CONFIG_PATH when both provided" {
+            $envConfigPath = Join-Path $TestDrive "env-config.json"
+            $argConfigPath = Join-Path $TestDrive "arg-config.json"
+
+            # Create two distinct configs
+            @{ BackupSettings = @{ DestinationPath = "C:\EnvBackups" } } | ConvertTo-Json -Depth 3 | Set-Content -Path $envConfigPath
+            @{ BackupSettings = @{ DestinationPath = "C:\ArgBackups" } } | ConvertTo-Json -Depth 3 | Set-Content -Path $argConfigPath
+
+            $oldEnv = $env:FILEGUARDIAN_CONFIG_PATH
+            try {
+                $env:FILEGUARDIAN_CONFIG_PATH = $envConfigPath
+                $result = Read-Config -ConfigPath $argConfigPath
+                $result.BackupSettings.DestinationPath | Should -Be "C:\ArgBackups"
+            }
+            finally {
+                if ($null -ne $oldEnv) { $env:FILEGUARDIAN_CONFIG_PATH = $oldEnv } else { Remove-Item Env:FILEGUARDIAN_CONFIG_PATH -ErrorAction SilentlyContinue }
+                Remove-Item -Path $envConfigPath,$argConfigPath -ErrorAction SilentlyContinue
             }
         }
     }

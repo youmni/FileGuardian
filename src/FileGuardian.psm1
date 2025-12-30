@@ -1,43 +1,85 @@
-# Ensure nested helper modules are loaded into this module's scope
-try {
-    $moduleDir = $PSScriptRoot
-    $modulesPath = Join-Path $moduleDir 'Modules'
-    if (Test-Path $modulesPath) {
-        Get-ChildItem -Path $modulesPath -Recurse -Filter '*.psm1' -File | ForEach-Object {
-            try {
-                Import-Module -Name $_.FullName -Force -ErrorAction Stop
-            }
-            catch {
-                Write-Verbose "Failed to import nested module '$($_.FullName)': $_"
-            }
-        }
-    }
-}
-catch {
-    Write-Verbose "Error while loading nested modules: $_"
-}
-
 function Invoke-FileGuardian {
     <#
     .SYNOPSIS
         Unified command for FileGuardian backup operations.
-    
+
     .DESCRIPTION
         Main entry point for FileGuardian functionality. Supports backup operations,
-        integrity verification, reporting, scheduling, and cleanup through a single command interface.
-    
+        integrity verification, reporting, scheduling, restore and retention cleanup
+        through a single command interface. Many parameters are optional and
+        validated depending on the chosen `-Action`.
+
     .PARAMETER Action
-        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup'.
-    
+        The operation to perform. Valid values: 'Backup', 'Verify', 'Report', 'Restore', 'Schedule' or 'Cleanup'.
+
+    .PARAMETER SourcePath
+        Path to the source directory to back up. Required when `-Action Backup` is used.
+
+    .PARAMETER DestinationPath
+        Optional destination root path where backups will be written. If omitted,
+        the destination is taken from configuration or defaults.
+
+    .PARAMETER BackupName
+        Optional name for the backup configuration or backup job. Required by some
+        operations (for example `-Action Cleanup` uses `-BackupName` to select configuration).
+
+    .PARAMETER BackupType
+        Type of backup to perform when `-Action Backup`. Valid values: 'Full', 'Incremental'.
+        Default is 'Full' (can be overridden by configuration).
+
+    .PARAMETER Compress
+        Switch to enable compression of created backups (ZIP archives).
+
+    .PARAMETER ExcludePatterns
+        Array of file/directory patterns to exclude from backups (e.g. @('*.tmp','node_modules/**')).
+
+    .PARAMETER ReportFormat
+        Format for generated reports. Valid values: 'JSON', 'HTML', 'CSV'. If omitted,
+        the configured default is used.
+
+    .PARAMETER ReportOutputPath
+        Output directory for generated backup reports. When provided, this path is
+        forwarded to underlying report writers.
+
+    .PARAMETER ReportPath
+        Path to an existing report file to verify.
+
+    .PARAMETER BackupPath
+        Path to a backup to verify (used with `-Action Verify`). Can point to a
+        backup directory or a compressed backup file.
+
+    .PARAMETER BackupDirectory
+        Directory containing backup files to restore from (used with `-Action Restore`).
+
+    .PARAMETER RestoreDirectory
+        Destination directory where backups will be restored (used with `-Action Restore`).
+
+    .PARAMETER CleanupBackupDirectory
+        Optional explicit backup directory used for `-Action Cleanup`. If omitted,
+        the backup directory is taken from the named configuration or global settings.
+
+    .PARAMETER ConfigPath
+        Optional path to a custom configuration file (e.g. config\backup-config.json).
+
+    .PARAMETER Remove
+        Switch used by `-Action Schedule` to remove a scheduled task instead of registering it.
+
+    .PARAMETER RetentionDays
+        Integer number of days to retain backups (used with `-Action Cleanup`). If omitted,
+        retention is read from the backup configuration.
+
+    .PARAMETER Quiet
+        Suppresses informational and verbose output when present.
+
     .EXAMPLE
         Invoke-FileGuardian -Action Backup -SourcePath "C:\Data"
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Schedule
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments"
-    
+
     .EXAMPLE
         Invoke-FileGuardian -Action Cleanup -BackupName "MyBackup"
     #>
@@ -101,7 +143,6 @@ function Invoke-FileGuardian {
         })]
         [string]$ReportPath,
         
-        # Report output path for backups
         [Parameter(Mandatory=$false)]
         [string]$ReportOutputPath,
         
@@ -121,11 +162,9 @@ function Invoke-FileGuardian {
         [ValidateSet('JSON', 'HTML', 'CSV')]
         [string]$ReportFormat,
         
-        # Schedule parameters
         [Parameter(Mandatory=$false)]
         [switch]$Remove,
         
-        # Cleanup parameters
         [Parameter(Mandatory=$false)]
         [int]$RetentionDays,
         
@@ -166,8 +205,20 @@ function Invoke-FileGuardian {
             }
         }
         
-        # Set up paths
         $scriptRoot = $PSScriptRoot
+
+        # Dynamically load all module scripts from the Modules directory
+        $modulesDir = Join-Path $scriptRoot 'Modules'
+        if (Test-Path $modulesDir) {
+            Get-ChildItem -Path $modulesDir -Recurse -Filter '*.ps1' -File | Sort-Object -Property FullName | ForEach-Object {
+                try {
+                    . $_.FullName
+                }
+                catch {
+                    Write-Verbose "Failed to load module script: $($_.FullName) - $($_.Exception.Message)"
+                }
+            }
+        }
         
         # Suppress output if Quiet mode
         if ($Quiet) {
@@ -175,20 +226,23 @@ function Invoke-FileGuardian {
             $InformationPreference = 'SilentlyContinue'
         }
         
-        # Load config for DefaultBackupType if BackupType not explicitly provided
+        # Load config for DefaultBackupType using Read-Config (assumed available)
         if ($Action -eq 'Backup' -and -not $PSBoundParameters.ContainsKey('BackupType')) {
-            $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
-            if (Test-Path $configFilePath) {
-                try {
-                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
-                    if ($config.GlobalSettings.DefaultBackupType) {
-                        $BackupType = $config.GlobalSettings.DefaultBackupType
-                        Write-Verbose "Using DefaultBackupType from config: $BackupType"
-                    }
+            try {
+                if ($ConfigPath) {
+                    $config = Read-Config -ConfigPath $ConfigPath
                 }
-                catch {
-                    Write-Verbose "Could not load DefaultBackupType from config: $_"
+                else {
+                    $config = Read-Config
                 }
+
+                if ($config -and $config.GlobalSettings.DefaultBackupType) {
+                    $BackupType = $config.GlobalSettings.DefaultBackupType
+                    Write-Verbose "Using DefaultBackupType from config: $BackupType"
+                }
+            }
+            catch {
+                Write-Verbose "Could not load DefaultBackupType from config: $_"
             }
         }
         
@@ -352,64 +406,27 @@ function Invoke-FileGuardian {
                 }
                 
                 'Cleanup' {
+                    if (-not $PSBoundParameters.ContainsKey('BackupName') -or [string]::IsNullOrWhiteSpace($BackupName)) {
+                        throw "BackupName is required for Cleanup action"
+                    }
+
                     Write-Log -Message "Starting retention cleanup..." -Level Info
-                    
-                    # Load config to get backup settings
-                    $configFilePath = if ($ConfigPath) { $ConfigPath } else { Join-Path $scriptRoot "..\config\backup-config.json" }
-                    
-                    if (-not (Test-Path $configFilePath)) {
-                        throw "Configuration file not found: $configFilePath"
-                    }
-                    
-                    $config = Get-Content $configFilePath -Raw | ConvertFrom-Json
-                    
-                    if (-not $config.ScheduledBackups) {
-                        throw "No scheduled backups found in configuration."
-                    }
-                    
-                    # Find the backup configuration
-                    $backupConfig = $config.ScheduledBackups | Where-Object { $_.Name -eq $BackupName }
-                    if (-not $backupConfig) {
-                        throw "Backup '$BackupName' not found in configuration."
-                    }
-                    
-                    # Determine retention days
-                    $days = if ($RetentionDays) {
-                        $RetentionDays
-                    } elseif ($backupConfig.RetentionDays) {
-                        $backupConfig.RetentionDays
-                    } elseif ($config.BackupSettings.RetentionDays) {
-                        $config.BackupSettings.RetentionDays
-                    } else {
-                        throw "No RetentionDays configured for backup: $BackupName"
-                    }
-                    
-                    # Determine backup directory
-                    $backupDir = if ($CleanupBackupDirectory) {
-                        $CleanupBackupDirectory
-                    } elseif ($backupConfig.BackupPath) {
-                        $backupConfig.BackupPath
-                    } elseif ($config.BackupSettings.DestinationPath) {
-                        $config.BackupSettings.DestinationPath
-                    } else {
-                        throw "No backup directory configured for: $BackupName"
-                    }
-                    
-                    if (-not (Test-Path $backupDir)) {
-                        throw "Backup directory not found: $backupDir"
-                    }
-                    
-                    Write-Log -Message "Cleaning up backups in: $backupDir (RetentionDays: $days)" -Level Info
-                    
-                    # Perform cleanup
-                    $result = Invoke-BackupRetention -BackupDirectory $backupDir -RetentionDays $days -BackupName $BackupName
-                    
-                    if ($result.DeletedCount -gt 0) {
+
+                    $cleanupParams = @{}
+                    if ($ConfigPath) { $cleanupParams.ConfigPath = $ConfigPath }
+                    if ($BackupName) { $cleanupParams.BackupName = $BackupName }
+                    if ($CleanupBackupDirectory) { $cleanupParams.CleanupBackupDirectory = $CleanupBackupDirectory }
+                    if ($RetentionDays) { $cleanupParams.RetentionDays = $RetentionDays }
+                    if ($Quiet) { $cleanupParams.Quiet = $true }
+
+                    $result = Invoke-BackupCleanup @cleanupParams
+
+                    if ($result -and $result.DeletedCount -gt 0) {
                         Write-Log -Message "Cleanup completed: Deleted $($result.DeletedCount) backup(s), freed $($result.FreedSpaceMB) MB" -Level Success
                     } else {
                         Write-Log -Message "Cleanup completed: No backups exceeded retention period" -Level Info
                     }
-                    
+
                     return $result
                 }
             }

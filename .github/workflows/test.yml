@@ -29,7 +29,7 @@ jobs:
       run: |
         Import-Module Pester -MinimumVersion 5.0
         $config = New-PesterConfiguration
-        $config.Run.Path = ".\tests"
+        $config.Run.Path = Join-Path $env:GITHUB_WORKSPACE "tests"
         $config.Run.Exit = $false
         $config.Run.PassThru = $true
         $config.Output.Verbosity = "Detailed"
@@ -37,7 +37,7 @@ jobs:
         $config.TestResult.OutputPath = ".\testResults.xml"
         
         # Get coverage files
-        $coverageFiles = Get-ChildItem -Path ".\src" -Recurse -Filter "*.psm1" | Select-Object -ExpandProperty FullName
+        $coverageFiles = Get-ChildItem -Path ".\src" -Recurse -Filter "*.ps1" | Select-Object -ExpandProperty FullName
         if ($coverageFiles) {
             $config.CodeCoverage.Enabled = $true
             $config.CodeCoverage.Path = $coverageFiles

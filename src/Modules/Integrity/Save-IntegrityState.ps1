@@ -53,20 +53,69 @@ function Save-IntegrityState {
     
     Process {
         try {
-            # Import Get-FileIntegrityHash module
-            Import-Module (Join-Path $PSScriptRoot "Get-FileIntegrityHash.psm1") -Force
-            
+
             # Get current hashes
             Write-Verbose "Calculating file hashes..."
-            $hashes = Get-FileIntegrityHash -Path $SourcePath -Recurse
-            
-            # Create state object
+            $rawHashes = @(Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $StateDirectory)
+            $rawHashes = $rawHashes | Where-Object { $_ -ne $null }
+
+            # Normalize entries to ensure stable keys for caching and JSON serialization
+            $normalizedFiles = @()
+            foreach ($h in $rawHashes) {
+                if ($null -eq $h) { continue }
+
+                # Normalise RelativePath (no leading slashes)
+                $rel = $h.RelativePath
+                if ($rel) { $rel = $rel.TrimStart('\','/') }
+
+                # Ensure Size exists (support 'Size' or 'Length')
+                if ($h.PSObject.Properties.Name -contains 'Size') {
+                    $size = [long]$h.Size
+                }
+                elseif ($h.PSObject.Properties.Name -contains 'Length') {
+                    $size = [long]$h.Length
+                }
+                else {
+                    $size = 0
+                }
+
+                # Normalize LastWriteTime to consistent string with milliseconds
+                $lwt = $h.LastWriteTime
+                if ($lwt -is [DateTime]) {
+                    $lwtStr = $lwt.ToString('yyyy-MM-dd HH:mm:ss.fff')
+                }
+                else {
+                    try { $lwtStr = ([DateTime]::Parse($lwt)).ToString('yyyy-MM-dd HH:mm:ss.fff') }
+                    catch { $lwtStr = $lwt.ToString() }
+                }
+
+                $fileObj = [PSCustomObject]@{
+                    Path = $h.Path
+                    RelativePath = $rel
+                    Hash = $h.Hash
+                    Algorithm = $h.Algorithm
+                    Size = $size
+                    LastWriteTime = $lwtStr
+                }
+
+                if ($h.PSObject.Properties.Name -contains 'CacheHit') {
+                    $null = $fileObj | Add-Member -NotePropertyName 'CacheHit' -NotePropertyValue $h.CacheHit -PassThru
+                }
+
+                $normalizedFiles += $fileObj
+            }
+
+            # Calculate counts and totals from normalized entries
+            $fileCount = $normalizedFiles.Count
+            $totalSize = 0
+            if ($fileCount -gt 0) { $totalSize = ($normalizedFiles | Measure-Object -Property Size -Sum).Sum }
+
             $state = [PSCustomObject]@{
                 Timestamp = Get-Date -Format "o"
                 SourcePath = (Resolve-Path $SourcePath).Path
-                FileCount = $hashes.Count
-                TotalSize = ($hashes | Measure-Object -Property Size -Sum).Sum
-                Files = $hashes
+                FileCount = $fileCount
+                TotalSize = $totalSize
+                Files = $normalizedFiles
             }
             
             # Rotate: latest -> prev

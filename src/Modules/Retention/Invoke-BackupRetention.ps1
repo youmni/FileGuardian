@@ -35,8 +35,8 @@ function Invoke-BackupRetention {
         [Parameter(Mandatory = $true)]
         [int]$RetentionDays,
         
-        [Parameter()]
-        [string]$BackupName
+        [Parameter(Mandatory = $false)]
+        [string]$BackupName = $null
     )
     
     begin {
@@ -76,6 +76,18 @@ function Invoke-BackupRetention {
             }
             
             Write-Verbose "Found $($allBackups.Count) backups to check"
+
+            # Safety: never delete if ALL backups would be deleted (possible system clock issue)
+            $backupsToDelete = $allBackups | Where-Object { $_.CreationTime -lt $cutoffDate }
+            if ($backupsToDelete.Count -eq $allBackups.Count -and $allBackups.Count -gt 0) {
+                Write-Log -Message "SAFETY: Refusing to delete ALL backups. Check system clock and retention settings." -Level Error
+                return [PSCustomObject]@{
+                    DeletedCount = 0
+                    FreedSpaceMB = 0
+                    CutoffDate = $cutoffDate
+                    RetentionDays = $RetentionDays
+                }
+            }
             
             # Check each backup
             foreach ($backup in $allBackups) {

@@ -73,8 +73,7 @@ function Register-BackupSchedule {
         $moduleRoot = Split-Path -Parent $PSScriptRoot
         $projectRoot = Split-Path -Parent (Split-Path -Parent $moduleRoot)
         $startScript = Join-Path $projectRoot "Start-FileGuardian.ps1"
-        # Prefer loading the module for scheduled tasks
-        $modulePath = Join-Path $projectRoot "src\FileGuardian.psd1"
+        $modulePath = Join-Path $projectRoot "src\FileGuardian.psm1"
         
         if (-not (Test-Path $startScript)) {
             throw "Start-FileGuardian.ps1 not found at: $startScript"

@@ -4,17 +4,16 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
     # Import Logging module first (dependency)
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.psm1") -Force
-    
-    # Import all Backup module .psm1 files (helpers and public)
-    Get-ChildItem -Path $script:BackupModulePath -Filter '*.psm1' | ForEach-Object {
-        Import-Module $_.FullName -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
+
+    # Dot-source all Backup module .ps1 files (helpers and public)
+    Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
+        . $_.FullName
     }
-    Import-Module (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.psm1") -Force
-    # Import Integrity module files (provides Get-FileIntegrityHash etc.)
+    . (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1")
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
-    Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.psm1' | ForEach-Object {
-        Import-Module $_.FullName -Force
+    Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object {
+        . $_.FullName
     }
     
     # Define helper function in BeforeAll scope
@@ -47,7 +46,7 @@ Describe "Invoke-IncrementalBackup" {
         
         New-TestData -Path $script:TestSourcePath
         # Ensure integrity helper is loaded for each test run
-        Import-Module (Join-Path $ProjectRoot "src\Modules\Integrity\Get-FileIntegrityHash.psm1") -Force
+        . (Join-Path $ProjectRoot "src\Modules\Integrity\Get-FileIntegrityHash.ps1")
         
         if (Test-Path $script:TestDestPath) {
             Remove-Item -Path $script:TestDestPath -Recurse -Force
@@ -109,6 +108,15 @@ Describe "Invoke-IncrementalBackup" {
         # Clean up any temporary report directories created under the test drive
         $tempReportDir = Join-Path $TestDrive "reports_incremental"
         if (Test-Path $tempReportDir) { Remove-Item -Path $tempReportDir -Recurse -Force -ErrorAction SilentlyContinue }
+        # Also remove any report files created under the test drive (json/html/csv)
+        try {
+            Get-ChildItem -Path $TestDrive -Recurse -File -Include *.json,*.html,*.csv -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -like "*report*" -or $_.DirectoryName -like "*reports*" } |
+                ForEach-Object { Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue }
+        }
+        catch {
+            Write-Verbose "No report files to clean up."
+        }
     }
 
     Context "Basic Incremental Functionality" {

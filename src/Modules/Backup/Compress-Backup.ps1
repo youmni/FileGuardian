@@ -42,53 +42,46 @@ function Compress-Backup {
         [switch]$RemoveSource
     )
     
+    $result = $null
     try {
         Write-Log -Message "Starting compression of backup..." -Level Info
         Write-Verbose "Source: $SourcePath"
         Write-Verbose "Destination: $DestinationPath"
         Write-Verbose "Compression Level: $CompressionLevel"
-        
+
         # Ensure destination directory exists
         $destinationDir = Split-Path $DestinationPath -Parent
         if ($destinationDir -and -not (Test-Path $destinationDir)) {
             New-Item -Path $destinationDir -ItemType Directory -Force | Out-Null
         }
-        
+
         # Get source size
         $sourceFiles = Get-ChildItem -Path $SourcePath -Recurse -File
         $sourceSize = ($sourceFiles | Measure-Object -Property Length -Sum).Sum
         $fileCount = $sourceFiles.Count
-        
+
         Write-Log -Message "Compressing $fileCount files (Total: $([Math]::Round($sourceSize/1MB, 2)) MB)" -Level Info
         Write-Verbose "Compressing $fileCount files (Total: $([Math]::Round($sourceSize/1MB, 2)) MB)"
-        
+
         # Remove existing destination if it exists
         if (Test-Path $DestinationPath) {
             Write-Verbose "Removing existing archive: $DestinationPath"
             Remove-Item -Path $DestinationPath -Force
         }
-        
+
         # Create the archive
         Compress-Archive -Path "$SourcePath\*" -DestinationPath $DestinationPath -CompressionLevel $CompressionLevel -Force
         # Reset progress bar
         Write-Progress -Activity "Compress-Archive" -Completed
-        
+
         # Get compressed size
         $compressedSize = (Get-Item $DestinationPath).Length
-        $compressionRatio = [Math]::Round((1 - ($compressedSize/$sourceSize)) * 100, 2)
-        
+        if ($sourceSize -eq 0) { $compressionRatio = 0 } else { $compressionRatio = [Math]::Round((1 - ($compressedSize/$sourceSize)) * 100, 2) }
+
         Write-Log -Message "Compression completed: $([Math]::Round($compressedSize/1MB, 2)) MB (${compressionRatio}% reduction)" -Level Success
         Write-Verbose "Compression completed: $([Math]::Round($compressedSize/1MB, 2)) MB (${compressionRatio}% reduction)"
-        
-        # Remove source if requested
-        if ($RemoveSource) {
-            Write-Log -Message "Removing temporary source directory after compression" -Level Info
-            Write-Verbose "Removing source directory: $SourcePath"
-            Remove-Item -Path $SourcePath -Recurse -Force
-        }
-        
-        # Return compression info
-        return [PSCustomObject]@{
+
+        $result = [PSCustomObject]@{
             SourcePath = $SourcePath
             DestinationPath = $DestinationPath
             OriginalSizeMB = [Math]::Round($sourceSize/1MB, 2)
@@ -98,9 +91,29 @@ function Compress-Backup {
             CompressionLevel = $CompressionLevel
             Success = $true
         }
+
+        return $result
     }
     catch {
         Write-Error "Compression failed: $_"
         throw
+    }
+    finally {
+        # Only remove the source when compression succeeded and RemoveSource was requested.
+        if ($RemoveSource) {
+            if ($result -and $result.Success) {
+                if (Test-Path $SourcePath) {
+                    try {
+                        Remove-Item -Path $SourcePath -Recurse -Force -ErrorAction Stop
+                    }
+                    catch {
+                        Write-Log -Message ("Failed to remove source directory after compression: {0}. {1}" -f $SourcePath, $_.Exception.Message) -Level Warning
+                    }
+                }
+            }
+            else {
+                Write-Verbose "Compression did not complete successfully; not removing source directory: $SourcePath"
+            }
+        }
     }
 }

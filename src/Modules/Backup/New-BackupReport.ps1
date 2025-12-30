@@ -33,26 +33,7 @@ function New-BackupReport {
     )
     
     try {
-        Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info
-        $signModule = Join-Path $PSScriptRoot "..\Reporting\Protect-Report.psm1"
-        
-        # Select report module based on format
-        $reportModule = switch ($ReportFormat) {
-            "JSON" { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
-            "HTML" { Join-Path $PSScriptRoot "..\Reporting\Write-HtmlReport.psm1" }
-            "CSV"  { Join-Path $PSScriptRoot "..\Reporting\Write-CsvReport.psm1" }
-            default { Join-Path $PSScriptRoot "..\Reporting\Write-JsonReport.psm1" }
-        }
-        
-        if (-not (Test-Path $reportModule)) {
-            Write-Log -Message "Report module not found: $reportModule" -Level Error
-            $BackupInfo['ReportPath'] = $null
-            $BackupInfo['ReportSigned'] = $false
-            return $BackupInfo
-        }
-        
-        Import-Module $reportModule -Force
-        
+        Write-Log -Message "Generating backup report ($ReportFormat)..." -Level Info        
         # Generate report based on format
         $reportInfo = switch ($ReportFormat) {
             "JSON" {
@@ -83,13 +64,10 @@ function New-BackupReport {
             $BackupInfo['ReportFormat'] = $ReportFormat
             Write-Log -Message "Report generated: $($reportInfo.ReportPath)" -Level Success
             
-            if (Test-Path $signModule) {
-                Import-Module $signModule -Force
-                $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
-                $BackupInfo['ReportSigned'] = $true
-                $BackupInfo['ReportSignature'] = $signInfo.Hash
-                Write-Log -Message "Report signed successfully" -Level Info
-            }
+            $signInfo = Protect-Report -ReportPath $reportInfo.ReportPath
+            $BackupInfo['ReportSigned'] = $true
+            $BackupInfo['ReportSignature'] = $signInfo.Hash
+            Write-Log -Message "Report signed successfully" -Level Info
         }
         else {
             $BackupInfo['ReportPath'] = $null
