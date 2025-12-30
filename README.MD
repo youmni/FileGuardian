@@ -1,64 +1,122 @@
 # FileGuardian
 
-An automated backup system with cryptographic integrity verification for Windows environments.
+**Automated backup system with cryptographic integrity verification for Windows environments**
+
+---
 
 ## Overview
 
-FileGuardian is a robust, modular PowerShell tool designed to automate file backups while ensuring data integrity through cryptographic hash verification. The system helps prevent data loss and undetected file corruption by validating every backup operation.
+FileGuardian is a robust, modular PowerShell-based backup solution designed to automate file backups while ensuring data integrity through SHA256 cryptographic verification. The system helps prevent data loss and undetected file corruption by validating every backup operation and maintaining detailed audit trails through digitally signed reports.
 
+FileGuardian offers flexible backup strategies, automated scheduling via Windows Task Scheduler and comprehensive reporting capabilities—all through a unified command-line interface.
+
+---
 
 ## Features
 
-## Core Functionality (MVP)
+### Core Capabilities
 
-- [x] **Automated Backups**  
-  Supports both full and incremental backup modes
+- **Multiple Backup Strategies**  
+  - Full backups: Complete snapshots of source directories
+  - Incremental backups: Efficient delta-based backups tracking only changed files
+  - Automated fallback: Incremental operations automatically perform full backups when no baseline exists
 
-- [x] **Scheduled Execution**  
-  Integration with external schedulers (e.g. Windows Task Scheduler, cron)
+- **Cryptographic Integrity Verification**  
+  - SHA256 hash-based file validation
+  - State tracking with `latest.json` and `prev.json` for change detection
+  - Automatic corruption detection across all backup operations
+  - Verification of previous backups during each backup cycle
 
-- [x] **Comprehensive Logging**  
-  Detailed action logging with timestamps and error tracking
+- **Automated Scheduling**  
+  - Integration with Windows Task Scheduler
+  - Event-driven retention cleanup (executes automatically after successful backups)
+  - Flexible scheduling: daily, weekly, hourly frequencies
+  - Runs as SYSTEM account for reliable background execution
 
-- [x] **JSON Reporting**  
-  Structured reports including processed files, detected changes, and errors
+- **Comprehensive Reporting**  
+  - Multiple output formats: JSON, HTML or CSV
+  - Digital signatures (SHA256) for tamper detection
+  - Detailed backup statistics and change summaries
+  - Previous backup verification results included in reports
 
-- [x] **Integrity Verification**  
-  File integrity validation using hash comparison between source and destination
+- **Optional Data Compression**  
+  - ZIP archive creation with configurable compression levels
+  - Compression ratio tracking
+  - Space-saving for long-term storage
 
-- [x] **Compression**  
-  Optional compression of backup data
+- **Intelligent Retention Management**  
+  - Configurable retention periods per backup
+  - Safe deletion logic (prevents accidental removal of all backups)
 
-- [x] **Digital Signatures**  
-  Cryptographic signing of backup reports to ensure authenticity and integrity
+- **Restore Capabilities**  
+  - Restore from full and incremental backup chains
+  - Support for both compressed (ZIP) and uncompressed backups
+  - Automatic deletion application for incremental restores
+  - Metadata validation during restore operations
 
+### Advanced Features
 
-## Optional Enhancements
+- **Exclusion Patterns**: Filter files using glob patterns (e.g., `*.tmp`, `node_modules/**`)
+- **Parallel Hashing**: Multi-threaded file integrity calculation for improved performance
+- **State Caching**: Smart hash reuse for unchanged files to optimize incremental operations
+- **Detailed Logging**: Comprehensive timestamped logs with automatic rotation
+- **Backup Verification**: Validate any backup's integrity against saved state
+- **Report Signature Verification**: Confirm report authenticity via `.sig` files
 
-### Backup Strategies
-- [ ] Differential backups  
-- [ ] Mirror backups  
-- [ ] Versioned backup history  
+---
 
-### Storage Targets
-- [ ] Network Attached Storage (NAS)  
-- [ ] Cloud storage providers  
-- [ ] SFTP / remote servers  
+## Installation
 
-### User Experience
-- [ ] Text-based User Interface (TUI)  
+### Prerequisites
 
-### Restore
-- [ ] Restore
-### Notifications & Reporting
-- [ ] Email notifications for errors or integrity issues  
-- [x] Additional report formats (CSV, HTML)  
+- **Operating System**: Windows 11
+- **PowerShell**: Version 5.1 or later
+- **Permissions**: Administrator rights (required for scheduled task registration)
+- **Disk Space**: Sufficient storage for source data + backups
+
+### Quick Start
+
+1. **Clone the repository**
+   ```powershell
+   git clone https://github.com/Youmni/FileGuardian.git
+   cd FileGuardian
+   ```
+
+2. **Set configuration path** (optional - recommended for scheduled tasks)
+   ```powershell
+   # Set environment variable to absolute path of your config file
+   [Environment]::SetEnvironmentVariable('FILEGUARDIAN_CONFIG_PATH', <PATH>, 'User')
+   ```
+---
 
 ## Documentation
 
-For detailed usage instructions, configuration options, and examples, please refer to:
+Comprehensive guides are available in the `docs/` directory:
 
-**[UserGuide.md](docs/UserGuide.md)** - Complete user documentation with examples
+- **[UserGuide.md](docs/UserGuide.md)** - Complete usage documentation with examples for all operations (Backup, Verify, Report, Restore, Schedule and  Cleanup)
+- **[DeveloperGuide.md](docs/DeveloperGuide.md)** - Architecture overview, module structure, development workflow and contribution guidelines
+
+---
+
+## Tech Stack
+
+**Core Technologies:**
+- PowerShell 5.1+
+- Windows Task Scheduler
+- Pester
+
+---
+
+## Testing
+
+FileGuardian includes comprehensive test coverage using Pester.
+
+**CI/CD:**  
+Automated testing runs via GitHub Actions on every push to `feature/*` and `fix/*` branches, with results published as test artifacts.
+
+---
 
 ## Author
-- [@Youmni Malha](https://github.com/Youmni)
+
+**Youmni Malha**  
+[@Youmni](https://github.com/Youmni)
