@@ -23,14 +23,12 @@ jobs:
 
       - name: Setup test environment
         shell: pwsh
-        run: |
-          # Install CredentialManager (for Get-StoredCredential) and ensure directories exist
-          Install-Module -Name CredentialManager -Force -Scope CurrentUser -AllowClobber -ErrorAction SilentlyContinue
           New-Item -Path "$env:FILEGUARDIAN_LOG_DIRECTORY" -ItemType Directory -Force | Out-Null
           New-Item -Path "$env:FILEGUARDIAN_REPORT_OUTPUT_PATH" -ItemType Directory -Force | Out-Null
           New-Item -Path "${{ github.workspace }}\backups" -ItemType Directory -Force | Out-Null
 
       - name: test module
+        id: test_module
         uses: zyborg/pester-tests-report@v1
         continue-on-error: true
         with:
@@ -39,8 +37,8 @@ jobs:
           report_name: module_tests
           report_title: Module Tests
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          show_passed_tests: false
-          show_skipped_tests: false
+          skip_check_run: true
+
 
 
       - name: dump test results (action)
