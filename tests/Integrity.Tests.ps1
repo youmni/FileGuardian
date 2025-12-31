@@ -1,5 +1,4 @@
 BeforeAll {
-    # Import required modules
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"

@@ -212,7 +212,14 @@ Describe "Protect-Report" {
             $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
 
             $reportBytes = [System.IO.File]::ReadAllBytes($script:TestReportPath)
-            $metaString = "$($signature.ReportFile)|$($signature.Algorithm)|$($signature.SignedAt)|$($signature.SignedBy)|$($signature.CredentialTarget)"
+
+            $reportFileLeaf = [string]$signature.ReportFile
+            $algorithm = [string]$signature.Algorithm
+            if ($signature.SignedAt -is [DateTime]) { $signedAt = $signature.SignedAt.ToString('o') } else { $signedAt = [DateTime]::Parse([string]$signature.SignedAt).ToString('o') }
+            $signedBy = [string]$signature.SignedBy
+            $credTarget = [string]$signature.CredentialTarget
+
+            $metaString = "$reportFileLeaf|$algorithm|$signedAt|$signedBy|$credTarget"
             $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
 
             $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
@@ -283,7 +290,12 @@ Describe "Confirm-ReportSignature" {
         
         It "Should match expected and actual hash for valid report" {
             $result = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            
+
+            # Normalize ExpectedHash/ActualHash comparison by ensuring signature's SignedAt uses ISO 'o' format
+            $sig = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            if ($sig.SignedAt -is [DateTime]) { $sigSignedAt = $sig.SignedAt.ToString('o') } else { $sigSignedAt = [DateTime]::Parse([string]$sig.SignedAt).ToString('o') }
+
+            # If Confirm-ReportSignature returned hash strings, compare them directly
             $result.ExpectedHash | Should -Be $result.ActualHash
         }
         
