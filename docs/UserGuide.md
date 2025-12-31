@@ -12,6 +12,7 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 2. [Configuration](#configuration)
   - [Configuration Hierarchy](#configuration-hierarchy)
   - [Global Settings](#global-settings)
+  - [Credential Storage](#credential-storage)
   - [Exclusion Patterns](#exclusion-patterns)
 3. [Manual Operations](#manual-operations)
   - [Backup Operations](#backup-operations)
@@ -63,7 +64,7 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 2. Load the FileGuardian module and run your first backup.
 
 ```powershell
-`Import-Module FileGuardian`
+Import-Module <path-to-module>\FileGuardian.psm1
 ```
 3. Run your first backup with FileGuardian
 ```powershell
@@ -95,13 +96,25 @@ FileGuardian uses a **3-level priority system** for settings:
 2. **Command-line parameters** — explicit values passed to `Invoke-FileGuardian`.
 3. **Hardcoded defaults** (lowest priority) — built-in fallbacks.
 
-You can override the default config path by setting the environment variable `FILEGUARDIAN_CONFIFILEGUARDIAN_CONFIG_PATH`.
+You can override the default config path by setting the environment variable `FILEGUARDIAN_CONFIG_PATH`.
 
 ```powershell
 [System.Environment]::SetEnvironmentVariable('FILEGUARDIAN_CONFIG_PATH','<PATH>', 'User')
 ```
 
 A sample configuration file is included in this repository at `config\backup-config.json` — copy or edit it to define your scheduled backups and defaults.
+
+### Credential Storage
+
+Install and use the CredentialManager module to securely store the report signing secret:
+
+```powershell
+Install-Module -Name CredentialManager -Scope CurrentUser
+$bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$secret = [Convert]::ToBase64String($bytes)
+New-StoredCredential -Target "FileGuardian.ReportSigning" -UserName "FileGuardian" -Password $secret -Persist LocalMachine
+Get-StoredCredential -Target "FileGuardian.ReportSigning"
+```
 
 ### Global Settings
 
@@ -310,11 +323,10 @@ State:     2025-12-30T19:53:53.9648160+01:00
 BackupPath     : C:\FileGuardian\Aklaa\backups\file_guardian_20251230_195352
 StateTimestamp : 2025-12-30T19:53:53.9648160+01:00
 IsIntact       : True
-Verified       : {...}
 Corrupted      : {}
 Missing        : {}
 Extra          : {}
-Summary        : @{VerifiedCount=316; CorruptedCount=0; MissingCount=0; ExtraCount=0; TotalFiles=316}
+Summary        : @{VerifiedCount=316; CorruptedCount=0; MissingCount=0; ExtraCount=0; TotalSourceFiles=316}
 ```
 
 **When to Verify:**

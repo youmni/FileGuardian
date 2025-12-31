@@ -12,7 +12,11 @@ function Protect-Report {
     
     .PARAMETER Algorithm
         Hash algorithm to use (SHA256, SHA1, MD5). Default is SHA256.
-    
+
+    .PARAMETER CredentialTarget
+        The name of the credential target in Windows Credential Manager to use for signing.
+        Default is "FileGuardian.ReportSigning".
+        
     .EXAMPLE
         Protect-Report -ReportPath ".\reports\backup_report.json"
         Signs the report with SHA256
@@ -22,29 +26,56 @@ function Protect-Report {
         [Parameter(Mandatory=$true)]
         [ValidateScript({ Test-Path $_ })]
         [string]$ReportPath,
-        
+
         [Parameter()]
-        [ValidateSet("SHA256", "SHA1", "MD5")]
-        [string]$Algorithm = "SHA256"
+        [ValidateSet("HMACSHA256", "HMACSHA1")]
+        [string]$Algorithm = "HMACSHA256",
+
+        [Parameter()]
+        [string]$CredentialTarget = "FileGuardian.ReportSigning"
     )
     
     Process {
         try {
             Write-Log -Message "Signing report: $ReportPath" -Level Info
             
-            # Calculate hash of report
-            $hash = Get-FileHash -Path $ReportPath -Algorithm $Algorithm
+            $key = Get-ReportSigningKey -Target $CredentialTarget
+            if (-not $key) { throw "Signing key could not be retrieved from Credential Manager for target '$CredentialTarget'" }
+            $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+            # Prepare metadata
+            $reportFileLeaf = Split-Path $ReportPath -Leaf
+            $signedAt = Get-Date -Format "o"
+            $signedBy = "$env:USERNAME@$env:COMPUTERNAME"
+            $credTargetValue = $CredentialTarget
+
+            $metaString = "$reportFileLeaf|$Algorithm|$signedAt|$signedBy|$credTargetValue"
+            $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+            # Read report bytes and concatenate with metadata bytes
+            $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
+            $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+            [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+            [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+            switch ($Algorithm) {
+                'HMACSHA256' { $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes) }
+                'HMACSHA1' { $hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes) }
+            }
+            $hashBytes = $hmac.ComputeHash($combined)
+            $hash = [PSCustomObject]@{ Hash = ([System.BitConverter]::ToString($hashBytes)).Replace('-','').ToLowerInvariant() }
             
             # Create signature file path
             $signaturePath = "$ReportPath.sig"
             
             # Build signature content
             $signature = [PSCustomObject]@{
-                ReportFile = Split-Path $ReportPath -Leaf
+                ReportFile = $reportFileLeaf
                 Algorithm = $Algorithm
                 Hash = $hash.Hash
-                SignedAt = Get-Date -Format "o"
-                SignedBy = "$env:USERNAME@$env:COMPUTERNAME"
+                SignedAt = $signedAt
+                SignedBy = $signedBy
+                CredentialTarget = $credTargetValue
             }
             
             # Save signature

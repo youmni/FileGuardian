@@ -198,7 +198,6 @@ function Test-BackupIntegrity {
                 BackupPath = $BackupPath
                 StateTimestamp = $state.Timestamp
                 IsIntact = $isIntact
-                Verified = $verified
                 Corrupted = $corrupted
                 Missing = $missing
                 Extra = $extra
@@ -207,7 +206,7 @@ function Test-BackupIntegrity {
                     CorruptedCount = $corrupted.Count
                     MissingCount = $missing.Count
                     ExtraCount = $extra.Count
-                    TotalFiles = $state.FileCount
+                    TotalSourceFiles = $state.FileCount
                 }
             }
             

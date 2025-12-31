@@ -34,10 +34,36 @@ function Confirm-ReportSignature {
             # Load signature
             $signature = Get-Content -Path $signaturePath -Raw | ConvertFrom-Json
             
-            # Calculate current hash
-            $currentHash = Get-FileHash -Path $ReportPath -Algorithm $signature.Algorithm
-            
-            # Compare
+            if (-not ($signature.Algorithm -and ($signature.Algorithm -like 'HMAC*'))) {
+                Write-Error "Report signature algorithm is not HMAC."
+                throw "Unsupported signature algorithm: $($signature.Algorithm)"
+            }
+
+            $credentialTarget = if ($signature.CredentialTarget) { $signature.CredentialTarget } else { 'FileGuardian.ReportSigning' }
+            $key = Get-ReportSigningKey -Target $credentialTarget
+            if (-not $key) { throw "Signing key could not be retrieved from Credential Manager for target '$credentialTarget'" }
+            $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+            $reportFileLeaf = $signature.ReportFile
+            $signedAt = $signature.SignedAt
+            $signedBy = $signature.SignedBy
+            $credTargetValue = $credentialTarget
+            $metaString = "$reportFileLeaf|$($signature.Algorithm)|$signedAt|$signedBy|$credTargetValue"
+            $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+            # Read report bytes and concatenate with metadata bytes
+            $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
+            $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+            [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+            [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+            switch ($signature.Algorithm) {
+                'HMACSHA256' { $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes) }
+                'HMACSHA1' { $hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes) }
+            }
+            $hashBytes = $hmac.ComputeHash($combined)
+            $currentHash = [PSCustomObject]@{ Hash = ([System.BitConverter]::ToString($hashBytes)).Replace('-','').ToLowerInvariant() }
+
             $isValid = ($currentHash.Hash -eq $signature.Hash)
             
             if ($isValid) {
