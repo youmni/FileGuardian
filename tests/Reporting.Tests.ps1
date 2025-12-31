@@ -9,6 +9,14 @@ BeforeAll {
     Import-Module (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1") -Force
+
+    # Override Get-ReportSigningKey in tests to avoid depending on Windows Credential Manager
+    function Get-ReportSigningKey {
+        param(
+            [string]$Target = "FileGuardian.ReportSigning"
+        )
+        return 'FileGuardianTestKey-Secret'
+    }
     
     # Helper function to create test backup info
     function script:New-TestBackupInfo {
