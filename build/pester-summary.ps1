@@ -58,8 +58,11 @@ foreach ($file in $testsByFile) {
     $fileFailed = ($file.Group | Where-Object Result -eq 'Failed').Count
     $fileSkipped = ($file.Group | Where-Object Result -eq 'Skipped').Count
     $fileTotal = $file.Count
-    $fileTime = ($file.Group | Measure-Object Duration -Sum).Sum
-
+    $fileTimeSeconds = (
+        $file.Group |
+        ForEach-Object { $_.Duration.TotalSeconds }
+    ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+    $fileTime = [TimeSpan]::FromSeconds($fileTimeSeconds)
     $summary += "| $($file.Name) | $filePassed | $fileFailed | $fileSkipped | $([math]::Round($fileTime.TotalSeconds, 3))s |"
 }
 
@@ -77,7 +80,6 @@ foreach ($file in $testsByFile) {
         $file.Group |
         ForEach-Object { $_.Duration.TotalSeconds }
     ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-
     $fileTime = [TimeSpan]::FromSeconds($fileTimeSeconds)
     $fileRate = if ($fileTotal -gt 0) {
         [math]::Round(($filePassed / $fileTotal) * 100, 2)
