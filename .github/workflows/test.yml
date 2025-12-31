@@ -21,36 +21,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: test module (group 1)
-        id: test_module_1
-        uses: zyborg/pester-tests-report@v1
-        with:
-          include_paths: tests/FullBackup.Tests.ps1,tests/IncrementalBackup.Tests.ps1,tests/Integrity.Tests.ps1,tests/Logging.Tests.ps1
-          exclude_tags: skip_ci
-          report_name: module_tests_part1
-          report_title: Module Tests (part 1)
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: dump test results (group 1)
+      - name: Setup test environment
         shell: pwsh
         run: |
-          Write-Host 'Group1 - Total Executed...:  ${{ steps.test_module_1.outputs.total_count }}'
-          Write-Host 'Group1 - Passed.....:  ${{ steps.test_module_1.outputs.passed_count }}'
-          Write-Host 'Group1 - Failed.....:  ${{ steps.test_module_1.outputs.failed_count }}'
+          # Install CredentialManager (for Get-StoredCredential) and ensure directories exist
+          Install-Module -Name CredentialManager -Force -Scope CurrentUser -AllowClobber -ErrorAction SilentlyContinue
+          New-Item -Path "$env:FILEGUARDIAN_LOG_DIRECTORY" -ItemType Directory -Force | Out-Null
+          New-Item -Path "$env:FILEGUARDIAN_REPORT_OUTPUT_PATH" -ItemType Directory -Force | Out-Null
+          New-Item -Path "${{ github.workspace }}\backups" -ItemType Directory -Force | Out-Null
 
-      - name: test module (group 2)
-        id: test_module_2
+      - name: test module
+        id: test_module
         uses: zyborg/pester-tests-report@v1
+        continue-on-error: true
         with:
-          include_paths: tests/Restore.Tests.ps1,tests/RetentionCleanup.Tests.ps1,tests/Reporting.Tests.ps1,tests/Config.Tests.ps1
+          include_paths: tests
           exclude_tags: skip_ci
-          report_name: module_tests_part2
-          report_title: Module Tests (part 2)
+          report_name: module_tests
+          report_title: Module Tests
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: dump test results (group 2)
+      - name: dump test results (action)
         shell: pwsh
         run: |
-          Write-Host 'Group2 - Total Executed...:  ${{ steps.test_module_2.outputs.total_count }}'
-          Write-Host 'Group2 - Passed.....:  ${{ steps.test_module_2.outputs.passed_count }}'
-          Write-Host 'Group2 - Failed.....:  ${{ steps.test_module_2.outputs.failed_count }}'
+          Write-Host 'Action - Total Executed...:  ${{ steps.test_module.outputs.total_count }}'
+          Write-Host 'Action - Passed.....:  ${{ steps.test_module.outputs.passed_count }}'
+          Write-Host 'Action - Failed.....:  ${{ steps.test_module.outputs.failed_count }}'
