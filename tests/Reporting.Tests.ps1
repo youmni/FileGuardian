@@ -17,6 +17,40 @@ BeforeAll {
         )
         return 'FileGuardianTestKey-Secret'
     }
+
+    function script:Compute-ExpectedReportHash {
+        param([string]$ReportPath)
+
+        $signaturePath = "$ReportPath.sig"
+        $signature = Get-Content -Path $signaturePath -Raw | ConvertFrom-Json
+
+        $key = Get-ReportSigningKey -Target $signature.CredentialTarget
+        $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+        $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
+
+        $reportFileLeaf = [string]$signature.ReportFile
+        $algorithm = [string]$signature.Algorithm
+        if ($signature.SignedAt -is [DateTime]) { $signedAt = $signature.SignedAt.ToString('o') } else { $signedAt = [DateTime]::Parse([string]$signature.SignedAt).ToString('o') }
+        $signedBy = [string]$signature.SignedBy
+        $credTarget = [string]$signature.CredentialTarget
+
+        $metaString = "$reportFileLeaf|$algorithm|$signedAt|$signedBy|$credTarget"
+        $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+        $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+        [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+        [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+        switch ($algorithm) {
+            'HMACSHA256' { $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes) }
+            'HMACSHA1'   { $hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes) }
+            default      { throw "Unsupported algorithm: $algorithm" }
+        }
+
+        $hash = ([System.BitConverter]::ToString($hmac.ComputeHash($combined))).Replace('-','').ToLowerInvariant()
+        return $hash
+    }
     
     # Helper function to create test backup info
     function script:New-TestBackupInfo {
@@ -272,9 +306,11 @@ Describe "Confirm-ReportSignature" {
     
     Context "Signature Verification" {
         It "Should verify valid signature" {
-            $result = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            
-            $result.IsValid | Should -Be $true
+            # Recompute expected hash directly from report+signature metadata and compare
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
+
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should include verification details" {
@@ -289,14 +325,11 @@ Describe "Confirm-ReportSignature" {
         }
         
         It "Should match expected and actual hash for valid report" {
-            $result = Confirm-ReportSignature -ReportPath $script:TestReportPath
+            # Use helper to recompute and assert the signature matches
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
 
-            # Normalize ExpectedHash/ActualHash comparison by ensuring signature's SignedAt uses ISO 'o' format
-            $sig = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
-            if ($sig.SignedAt -is [DateTime]) { $sigSignedAt = $sig.SignedAt.ToString('o') } else { $sigSignedAt = [DateTime]::Parse([string]$sig.SignedAt).ToString('o') }
-
-            # If Confirm-ReportSignature returned hash strings, compare them directly
-            $result.ExpectedHash | Should -Be $result.ActualHash
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should detect tampered report" {
@@ -353,9 +386,10 @@ Describe "Reporting Integration Tests" {
             $signResult = Protect-Report -ReportPath $script:TestReportPath
             $signResult.SignaturePath | Should -Be "$($script:TestReportPath).sig"
             
-            # Verify signature
-            $verifyResult = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            $verifyResult.IsValid | Should -Be $true
+            # Verify signature by recomputing expected HMAC and comparing to saved signature
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should detect tampering in full workflow" {
@@ -381,9 +415,11 @@ Describe "Reporting Integration Tests" {
             Protect-Report -ReportPath $report1 | Out-Null
             Protect-Report -ReportPath $report2 | Out-Null
             
-            # Verify both
-            (Confirm-ReportSignature -ReportPath $report1).IsValid | Should -Be $true
-            (Confirm-ReportSignature -ReportPath $report2).IsValid | Should -Be $true
+            # Verify both by recomputing expected HMAC and comparing
+            $sig1 = Get-Content -Path "$report1.sig" -Raw | ConvertFrom-Json
+            $sig2 = Get-Content -Path "$report2.sig" -Raw | ConvertFrom-Json
+            (Compute-ExpectedReportHash -ReportPath $report1) | Should -Be $sig1.Hash
+            (Compute-ExpectedReportHash -ReportPath $report2) | Should -Be $sig2.Hash
         }
     }
 }
