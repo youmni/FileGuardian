@@ -26,30 +26,43 @@ function Invoke-IntegrityStateSave {
     param(
         [Parameter(Mandatory = $true)]
         [string]$SourcePath,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$DestinationPath,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$BackupName,
-        
+
         [Parameter()]
-        [bool]$Compress
+        [bool]$Compress,
+
+        [Parameter()]
+        [string[]]$ExcludePatterns
     )
-    
+
     try {
         Write-Log -Message "Saving integrity state..." -Level Info
         $stateDir = Join-Path $DestinationPath "states"
-        
+
         # Determine backup name for state file
         $stateBackupName = if ($Compress) {
             (Get-Item $BackupName).BaseName
         } else {
             Split-Path $BackupName -Leaf
         }
-        
-        Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName
-        
+
+        # Read config for exclusions if not provided
+        if (-not $ExcludePatterns) {
+            try {
+                $config = Read-Config
+                if ($config -and $config.BackupSettings -and $config.BackupSettings.ExcludePatterns) {
+                    $ExcludePatterns = $config.BackupSettings.ExcludePatterns
+                }
+            } catch {}
+        }
+
+        Save-IntegrityState -SourcePath $SourcePath -StateDirectory $stateDir -BackupName $stateBackupName -ExcludePatterns $ExcludePatterns
+
         Write-Log -Message "Integrity state saved successfully" -Level Info
         return $true
     }
