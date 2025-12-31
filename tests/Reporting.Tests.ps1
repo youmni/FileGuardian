@@ -6,6 +6,7 @@ BeforeAll {
     # Import required modules
     Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1") -Force
+    Import-Module (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1") -Force
     
@@ -180,23 +181,39 @@ Describe "Protect-Report" {
             $signature.SignedBy | Should -Not -BeNullOrEmpty
         }
         
-        It "Should use SHA256 algorithm by default" {
+        It "Should use HMACSHA256 algorithm by default" {
             $result = Protect-Report -ReportPath $script:TestReportPath
             
-            $result.Algorithm | Should -Be "SHA256"
+            $result.Algorithm | Should -Be "HMACSHA256"
         }
         
         It "Should support different algorithms" {
-            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "SHA1"
+            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "HMACSHA1"
             
-            $result.Algorithm | Should -Be "SHA1"
+            $result.Algorithm | Should -Be "HMACSHA1"
             $result.Hash.Length | Should -BeGreaterThan 0
         }
         
         It "Should calculate correct hash" {
-            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "SHA256"
-            
-            $expectedHash = (Get-FileHash -Path $script:TestReportPath -Algorithm SHA256).Hash
+            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "HMACSHA256"
+
+            $signaturePath = "$($script:TestReportPath).sig"
+            $signature = Get-Content -Path $signaturePath -Raw | ConvertFrom-Json
+
+            $key = Get-ReportSigningKey -Target $signature.CredentialTarget
+            $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+            $reportBytes = [System.IO.File]::ReadAllBytes($script:TestReportPath)
+            $metaString = "$($signature.ReportFile)|$($signature.Algorithm)|$($signature.SignedAt)|$($signature.SignedBy)|$($signature.CredentialTarget)"
+            $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+            $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+            [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+            [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+            $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes)
+            $expectedHash = ([System.BitConverter]::ToString($hmac.ComputeHash($combined))).Replace('-','').ToLowerInvariant()
+
             $result.Hash | Should -Be $expectedHash
         }
         

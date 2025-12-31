@@ -241,9 +241,11 @@ Describe "Test-BackupIntegrity" {
         New-Item -Path $subFolder -ItemType Directory | Out-Null
         "Nested backup" | Out-File (Join-Path $subFolder "nested.txt")
         
-        # Create backup
+        # Create backup (copy contents, not the parent folder) - ensure clean target
         $script:backupDir = Join-Path $TestDrive "TestBackup"
-        Copy-Item -Path $script:sourceData -Destination $script:backupDir -Recurse
+        if (Test-Path $script:backupDir) { Remove-Item -Path $script:backupDir -Recurse -Force -ErrorAction SilentlyContinue }
+        New-Item -Path $script:backupDir -ItemType Directory | Out-Null
+        Copy-Item -Path "$script:sourceData\*" -Destination $script:backupDir -Recurse
         
         # Save state
         $script:stateDir = Join-Path $TestDrive "BackupStates"
@@ -262,9 +264,9 @@ Describe "Test-BackupIntegrity" {
         It "Should verify all files" {
             $result = Test-BackupIntegrity -BackupPath $script:backupDir -StateDirectory $script:stateDir
             
-            $result.Verified | Should -HaveCount 3
-            $result.Corrupted | Should -HaveCount 0
-            $result.Missing | Should -HaveCount 0
+            $result.Summary.VerifiedCount | Should -Be 3
+            $result.Summary.CorruptedCount | Should -Be 0
+            $result.Summary.MissingCount | Should -Be 0
         }
     }
     
@@ -323,8 +325,8 @@ Describe "Test-BackupIntegrity" {
         It "Should extract and verify ZIP contents" {
             $result = Test-BackupIntegrity -BackupPath $script:zipPath -StateDirectory $script:stateDir
             
-            $result.Verified | Should -HaveCount 3
-            $result.Corrupted | Should -HaveCount 0
+            $result.Summary.VerifiedCount | Should -Be 3
+            $result.Summary.CorruptedCount | Should -Be 0
         }
     }
     

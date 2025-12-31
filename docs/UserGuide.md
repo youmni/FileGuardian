@@ -20,6 +20,7 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
     - [Incremental Backup](#2-incremental-backup)
   - [Verify Operations](#verify-operations)
   - [Report Operations](#report-operations)
+  - [Restore Operations](#restore-operations)
   - [Cleanup Operations](#cleanup-operations)
 4. [Scheduled Backups](#scheduled-backups)
   - [Configuration](#configuration-1)
@@ -380,6 +381,41 @@ Report signature is VALID
 
 ---
 
+### Restore Operations
+
+Restore files from a backup (folder or compressed ZIP). Use the `Restore` action and provide the `-BackupPath` and `-DestinationPath`.
+
+**Restore Uncompressed Backup (folder):**
+```powershell
+$restore = @{
+  Action = 'Restore'
+  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000'
+  DestinationPath = 'C:\Restore\Projects'
+}
+Invoke-FileGuardian @restore
+```
+
+**Restore From ZIP:**
+```powershell
+$restore = @{
+  Action = 'Restore'
+  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000.zip'
+  DestinationPath = 'C:\Restore\Projects'
+}
+Invoke-FileGuardian @restore
+```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `-Action` | Yes | Must be `Restore` |
+| `-BackupPath` | Yes | Path to backup folder or ZIP file |
+| `-DestinationPath` | Yes | Where to restore files |
+
+**What Gets Restored:**
+- Files and directories
+
 ### Cleanup Operations
 
 Manually trigger cleanup to remove old backups based on retention settings. The `Cleanup` action can read settings from the configuration for the named backup, or you can provide the directory and retention days explicitly.
@@ -525,7 +561,6 @@ Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments" -Remove
 ### Task Behavior
 
 **Missed Tasks:**
-- If computer was off, task runs when it starts
 - Uses `-StartWhenAvailable` flag
 
 **Automatic Retention Cleanup:**
