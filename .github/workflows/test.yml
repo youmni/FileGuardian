@@ -23,6 +23,7 @@ jobs:
 
       - name: Setup test environment
         shell: pwsh
+        run: |
           New-Item -Path "$env:FILEGUARDIAN_LOG_DIRECTORY" -ItemType Directory -Force | Out-Null
           New-Item -Path "$env:FILEGUARDIAN_REPORT_OUTPUT_PATH" -ItemType Directory -Force | Out-Null
           New-Item -Path "${{ github.workspace }}\backups" -ItemType Directory -Force | Out-Null
@@ -38,8 +39,6 @@ jobs:
           report_title: Module Tests
           github_token: ${{ secrets.GITHUB_TOKEN }}
           skip_check_run: true
-
-
 
       - name: dump test results (action)
         shell: pwsh
