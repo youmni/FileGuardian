@@ -16,14 +16,15 @@ if (-not $tests) {
     Write-Error "No tests found."
 }
 
-$passed  = ($tests | Where-Object Result -eq 'Passed').Count
-$failed  = ($tests | Where-Object Result -eq 'Failed').Count
+$passed = ($tests | Where-Object Result -eq 'Passed').Count
+$failed = ($tests | Where-Object Result -eq 'Failed').Count
 $skipped = ($tests | Where-Object Result -eq 'Skipped').Count
-$total   = $tests.Count
+$total = $tests.Count
 $duration = $result.Duration
 $successRate = if ($total -gt 0) {
     [math]::Round(($passed / $total) * 100, 2)
-} else {
+}
+else {
     0
 }
 
@@ -53,11 +54,11 @@ $summary += "| Report | Passed | Failed | Skipped | Time |"
 $summary += "|--------|--------|--------|---------|------|"
 
 foreach ($file in $testsByFile) {
-    $filePassed  = ($file.Group | Where-Object Result -eq 'Passed').Count
-    $fileFailed  = ($file.Group | Where-Object Result -eq 'Failed').Count
+    $filePassed = ($file.Group | Where-Object Result -eq 'Passed').Count
+    $fileFailed = ($file.Group | Where-Object Result -eq 'Failed').Count
     $fileSkipped = ($file.Group | Where-Object Result -eq 'Skipped').Count
-    $fileTotal   = $file.Count
-    $fileTime    = ($file.Group | Measure-Object Duration -Sum).Sum
+    $fileTotal = $file.Count
+    $fileTime = ($file.Group | Measure-Object Duration -Sum).Sum
 
     $summary += "| $($file.Name) | $filePassed | $fileFailed | $fileSkipped | $([math]::Round($fileTime.TotalSeconds, 3))s |"
 }
@@ -68,14 +69,20 @@ $summary += "## Detailed Results"
 $summary += ""
 
 foreach ($file in $testsByFile) {
-    $filePassed  = ($file.Group | Where-Object Result -eq 'Passed').Count
-    $fileFailed  = ($file.Group | Where-Object Result -eq 'Failed').Count
+    $filePassed = ($file.Group | Where-Object Result -eq 'Passed').Count
+    $fileFailed = ($file.Group | Where-Object Result -eq 'Failed').Count
     $fileSkipped = ($file.Group | Where-Object Result -eq 'Skipped').Count
-    $fileTotal   = $file.Count
-    $fileTime    = ($file.Group | Measure-Object Duration -Sum).Sum
-    $fileRate    = if ($fileTotal -gt 0) {
+    $fileTotal = $file.Count
+    $fileTimeSeconds = (
+        $file.Group |
+        ForEach-Object { $_.Duration.TotalSeconds }
+    ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+
+    $fileTime = [TimeSpan]::FromSeconds($fileTimeSeconds)
+    $fileRate = if ($fileTotal -gt 0) {
         [math]::Round(($filePassed / $fileTotal) * 100, 2)
-    } else {
+    }
+    else {
         0
     }
 
