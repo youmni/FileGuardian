@@ -6,7 +6,6 @@ BeforeAll {
     # Import Logging module dependency
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Dot-source all Restore module helpers/public functions
     Get-ChildItem -Path $script:RestoreModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
     }

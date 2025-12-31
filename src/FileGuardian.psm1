@@ -72,7 +72,7 @@ function Invoke-FileGuardian {
         Suppresses informational and verbose output when present.
 
     .EXAMPLE
-        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data"
+        Invoke-FileGuardian -Action Backup -SourcePath "C:\Data" -DestinationPath "D:\Backups" -BackupName "MyBackup" -Compress -ReportFormat "HTML"
 
     .EXAMPLE
         Invoke-FileGuardian -Action Schedule
@@ -89,7 +89,6 @@ function Invoke-FileGuardian {
         [ValidateSet('Backup', 'Verify', 'Report', 'Restore', 'Schedule', 'Cleanup')]
         [string]$Action,
         
-        # Backup parameters
         [Parameter(Mandatory=$false)]
         [ValidateScript({ 
             if ($Action -eq 'Backup' -and -not (Test-Path $_)) {
@@ -99,7 +98,6 @@ function Invoke-FileGuardian {
         })]
         [string]$SourcePath,
 
-        # Restore parameters
         [Parameter(Mandatory=$false)]
         [ValidateScript({ 
             if ($Action -eq 'Restore' -and -not (Test-Path $_)) {
@@ -112,7 +110,6 @@ function Invoke-FileGuardian {
         [Parameter(Mandatory=$false)]
         [string]$RestoreDirectory,
         
-        # Cleanup parameters
         [Parameter(Mandatory=$false)]
         [string]$CleanupBackupDirectory,
         
@@ -123,7 +120,6 @@ function Invoke-FileGuardian {
         [ValidateSet('Full', 'Incremental')]
         [string]$BackupType = 'Full',
         
-        # Verify backup parameters
         [Parameter(Mandatory=$false)]
         [ValidateScript({ 
             if ($Action -eq 'Verify' -and -not (Test-Path $_)) {
@@ -133,7 +129,6 @@ function Invoke-FileGuardian {
         })]
         [string]$BackupPath,
         
-        # Report path for verification
         [Parameter(Mandatory=$false)]
         [ValidateScript({ 
             if ($Action -eq 'Report' -and -not (Test-Path $_)) {
@@ -226,7 +221,7 @@ function Invoke-FileGuardian {
             $InformationPreference = 'SilentlyContinue'
         }
         
-        # Load config for DefaultBackupType using Read-Config (assumed available)
+        # Load config for DefaultBackupType using Read-Config
         if ($Action -eq 'Backup' -and -not $PSBoundParameters.ContainsKey('BackupType')) {
             try {
                 if ($ConfigPath) {
@@ -255,6 +250,7 @@ function Invoke-FileGuardian {
             switch ($Action) {
                 'Backup' {
                     Write-Log -Message "Starting backup operation..." -Level Info
+                    $result = $null
                     
                     switch ($BackupType) {
                         'Full' {
