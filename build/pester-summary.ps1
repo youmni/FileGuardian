@@ -16,64 +16,89 @@ if (-not $tests) {
     Write-Error "No tests found."
 }
 
-foreach ($test in $tests) {
-    if ($test.Path -match 'tests[\\/]+([^\\/]+)') {
-        $test | Add-Member -NotePropertyName Module -NotePropertyValue $matches[1]
-    } else {
-        $test | Add-Member -NotePropertyName Module -NotePropertyValue 'Unknown'
-    }
+$passed  = ($tests | Where-Object Result -eq 'Passed').Count
+$failed  = ($tests | Where-Object Result -eq 'Failed').Count
+$skipped = ($tests | Where-Object Result -eq 'Skipped').Count
+$total   = $tests.Count
+$duration = $result.Duration
+$successRate = if ($total -gt 0) {
+    [math]::Round(($passed / $total) * 100, 2)
+} else {
+    0
 }
 
-$modules = $tests | Group-Object Module
+$testsByFile = $tests | Group-Object {
+    [System.IO.Path]::GetFileName($_.ScriptBlock.File)
+}
 
-$summaryLines = @()
-$summaryLines += "# Test Summary"
-$summaryLines += ""
-$summaryLines += "## Overview by module"
-$summaryLines += ""
-$summaryLines += "| Module | Total | Passed | Failed | Success Rate |"
-$summaryLines += "|--------|-------|--------|--------|--------------|"
+$summary = @()
 
-foreach ($module in $modules) {
-    $total  = $module.Count
-    $passed = ($module.Group | Where-Object Result -eq 'Passed').Count
-    $failed = ($module.Group | Where-Object Result -eq 'Failed').Count
-    $percent = if ($total -gt 0) {
-        [math]::Round(($passed / $total) * 100, 2)
+$summary += "# Test Results"
+$summary += ""
+$summary += "## Status"
+$summary += ""
+$summary += "| Status | Count |"
+$summary += "|--------|-------|"
+$summary += "| Passed | $passed |"
+$summary += "| Failed | $failed |"
+$summary += "| Skipped | $skipped |"
+$summary += "| Duration | $($duration.ToString()) |"
+$summary += ""
+$summary += "**Total Tests:** $total | **Success Rate:** $successRate%"
+$summary += ""
+
+$summary += "## Results by Test File"
+$summary += ""
+$summary += "| Report | Passed | Failed | Skipped | Time |"
+$summary += "|--------|--------|--------|---------|------|"
+
+foreach ($file in $testsByFile) {
+    $filePassed  = ($file.Group | Where-Object Result -eq 'Passed').Count
+    $fileFailed  = ($file.Group | Where-Object Result -eq 'Failed').Count
+    $fileSkipped = ($file.Group | Where-Object Result -eq 'Skipped').Count
+    $fileTotal   = $file.Count
+    $fileTime    = ($file.Group | Measure-Object Duration -Sum).Sum
+
+    $summary += "| $($file.Name) | $filePassed | $fileFailed | $fileSkipped | $([math]::Round($fileTime.TotalSeconds, 3))s |"
+}
+
+$summary += ""
+
+$summary += "## Detailed Results"
+$summary += ""
+
+foreach ($file in $testsByFile) {
+    $filePassed  = ($file.Group | Where-Object Result -eq 'Passed').Count
+    $fileFailed  = ($file.Group | Where-Object Result -eq 'Failed').Count
+    $fileSkipped = ($file.Group | Where-Object Result -eq 'Skipped').Count
+    $fileTotal   = $file.Count
+    $fileTime    = ($file.Group | Measure-Object Duration -Sum).Sum
+    $fileRate    = if ($fileTotal -gt 0) {
+        [math]::Round(($filePassed / $fileTotal) * 100, 2)
     } else {
         0
     }
 
-    $summaryLines += "| $($module.Name) | $total | $passed | $failed | $percent% |"
-}
+    $summary += "### $($file.Name) - $fileRate%"
+    $summary += ""
+    $summary += "$filePassed passed, $fileFailed failed, $fileSkipped skipped of $fileTotal total in $([math]::Round($fileTime.TotalSeconds, 3))s"
+    $summary += ""
 
-$summaryLines += ""
-$summaryLines += "## Failed tests per module"
-$summaryLines += ""
-
-foreach ($module in $modules) {
-    $failedTests = $module.Group | Where-Object Result -eq 'Failed'
-
-    if ($failedTests.Count -eq 0) {
-        continue
-    }
-
-    $summaryLines += "### $($module.Name)"
-    $summaryLines += ""
-
-    foreach ($test in $failedTests) {
-        $summaryLines += "- **$($test.Name)**"
-        if ($test.ErrorRecord) {
-            $summaryLines += "  - $($test.ErrorRecord.Exception.Message)"
+    if ($fileFailed -gt 0) {
+        foreach ($test in ($file.Group | Where-Object Result -eq 'Failed')) {
+            $summary += "- **$($test.Name)**"
+            if ($test.ErrorRecord) {
+                $summary += "  - $($test.ErrorRecord.Exception.Message)"
+            }
         }
+        $summary += ""
     }
-
-    $summaryLines += ""
 }
 
-$summaryPath = $env:GITHUB_STEP_SUMMARY
-$summaryLines -join "`n" | Out-File -FilePath $summaryPath -Encoding utf8
+$summary += "Job summary generated at run-time"
 
-if ($result.FailedCount -gt 0) {
-    Write-Error "$($result.FailedCount) tests failed."
+$summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
+if ($failed -gt 0) {
+    Write-Error "$failed tests failed."
 }
