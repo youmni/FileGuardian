@@ -7,14 +7,46 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Manual Operations](#manual-operations)
-   - [Backup Operations](#backup-operations)
-   - [Verify Operations](#verify-operations)
-   - [Report Operations](#report-operations)
-3. [Scheduled Backups](#scheduled-backups)
-4. [Configuration](#configuration)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start](#quick-start)
+2. [Configuration](#configuration)
+  - [Configuration Hierarchy](#configuration-hierarchy)
+  - [Global Settings](#global-settings)
+  - [Credential Storage](#credential-storage)
+  - [Exclusion Patterns](#exclusion-patterns)
+3. [Manual Operations](#manual-operations)
+  - [Backup Operations](#backup-operations)
+    - [Full Backup](#1-full-backup)
+    - [Incremental Backup](#2-incremental-backup)
+  - [Verify Operations](#verify-operations)
+  - [Report Operations](#report-operations)
+  - [Restore Operations](#restore-operations)
+  - [Cleanup Operations](#cleanup-operations)
+4. [Scheduled Backups](#scheduled-backups)
+  - [Configuration](#configuration-1)
+  - [Configuration Options](#configuration-options)
+  - [Schedule Frequencies](#schedule-frequencies)
+    - [Daily Backups](#daily-backups)
+    - [Weekly Backups](#weekly-backups)
+    - [Hourly Backups](#hourly-backups)
+  - [Registering Scheduled Tasks](#registering-scheduled-tasks)
+  - [Important: Scheduling Best Practices](#important-scheduling-best-practices)
+  - [Task Behavior](#task-behavior)
+  - [Automatic Retention Cleanup](#automatic-retention-cleanup)
 5. [Reports](#reports)
+  - [Report Formats](#report-formats)
+    - [HTML Report (Recommended)](#html-report-recommended)
+    - [JSON Report](#json-report)
+    - [CSV Report](#csv-report)
+  - [Report Contents](#report-contents)
+  - [Digital Signatures](#digital-signatures)
 6. [Best Practices](#best-practices)
+  - [Backup Strategy](#backup-strategy)
+  - [Directory Organization](#directory-organization)
+  - [Retention Management](#retention-management)
+  - [Security](#security)
+  - [Performance](#performance)
+7. [Support](#support)
 
 ---
 
@@ -30,39 +62,99 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 
 1. Open PowerShell in the FileGuardian directory
 
-2. Load the FileGuardian script/module and run your first backup. You can either dot-source the script for local development or import it as a module.
+2. Load the FileGuardian module and run your first backup.
 
 ```powershell
-# Option A — dot-source (use while developing from the repo)
-. .\src\FileGuardian.ps1
+Import-Module <path-to-module>\FileGuardian.psm1
+```
+3. Run your first backup with FileGuardian
+```powershell
 $backupParams = @{
   Action = 'Backup'
-  SourcePath = 'C:\Users\YourName\Documents\ProjectFiles'
-  DestinationPath = 'D:\Backups\Fileguardian'
+  SourcePath = 'C:\FileGuardian'
+  DestinationPath = 'D:\FileGuardian\backups'
   BackupName = 'FileGuardian'
-  ReportFormat = 'HTML'
-  ReportOutputPath = 'D:\Reports'
   Compress = $true
-}
-Invoke-FileGuardian @backupParams
-
-# Option B — if installed as a PowerShell module
-Import-Module FileGuardian
-$backupParams = @{
-  Action = 'Backup'
-  SourcePath = 'C:\...'
-  DestinationPath = 'D:\...'
-  BackupName = 'FileGuardian'
 }
 Invoke-FileGuardian @backupParams
 ```
 
 **What This Does:**
 - Backs up files from the specified `-SourcePath`
-- Stores backup files in the configured `-DestinationPath` (timestamped)
-- Generates the requested report format in `-ReportOutputPath`
+- Stores backup files in the configured `-DestinationPath`
 - Optional `-Compress` creates compressed archives
 - Tracks file integrity with SHA256 hashes and signs reports
+
+---
+
+## Configuration
+
+### Configuration Hierarchy
+
+FileGuardian uses a **3-level priority system** for settings:
+
+1. **Environment variable** `FILEGUARDIAN_CONFIG` (highest priority) — set this to a custom config file path to override defaults.
+2. **Command-line parameters** — explicit values passed to `Invoke-FileGuardian`.
+3. **Hardcoded defaults** (lowest priority) — built-in fallbacks.
+
+You can override the default config path by setting the environment variable `FILEGUARDIAN_CONFIG_PATH`.
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('FILEGUARDIAN_CONFIG_PATH','<PATH>', 'User')
+```
+
+A sample configuration file is included in this repository at `config\backup-config.json` — copy or edit it to define your scheduled backups and defaults.
+
+### Credential Storage
+
+Install and use the CredentialManager module to securely store the report signing secret:
+
+```powershell
+Install-Module -Name CredentialManager -Scope CurrentUser
+$bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$secret = [Convert]::ToBase64String($bytes)
+New-StoredCredential -Target "FileGuardian.ReportSigning" -UserName "FileGuardian" -Password $secret -Persist LocalMachine
+Get-StoredCredential -Target "FileGuardian.ReportSigning"
+```
+
+### Global Settings
+
+Located in `config\backup-config.json`:
+
+```json
+{
+  "GlobalSettings": {
+    "LogDirectory": "C:\\BackupLogs",
+    "ReportOutputPath": "C:\\BackupReports",
+    "ReportFormat": "JSON",
+    "DefaultBackupType": "Full"
+  },
+  "BackupSettings": {
+    "DestinationPath": "C:\\Backups",
+    "CompressBackups": false,
+    "ExcludePatterns": ["*.tmp", "*.log", "*.bak"],
+    "RetentionDays": 30
+  }
+}
+```
+
+### Exclusion Patterns
+
+Common patterns to exclude:
+
+```json
+"ExcludePatterns": [
+  "*.tmp",
+  "*.log",
+  "*.cache",
+  "Thumbs.db",
+  ".DS_Store",
+  "node_modules/**",
+  ".git/**",
+  "bin/**",
+  "obj/**"
+]
+```
 
 ---
 
@@ -76,7 +168,7 @@ FileGuardian supports three types of backups, each with specific use cases.
 
 Creates a complete backup of all files in the source directory.
 
-**Basic Usage (splatting):**
+**Basic Usage:**
 ```powershell
 $params = @{
   Action = 'Backup'
@@ -89,7 +181,7 @@ $params = @{
 Invoke-FileGuardian @params
 ```
 
-**With All Options (splatting):**
+**With All Options:**
 ```powershell
 $params = @{
   Action = 'Backup'
@@ -113,12 +205,12 @@ Invoke-FileGuardian @params
 | `-SourcePath` | Yes | - | The directory to backup |
 | `-DestinationPath` | No | From config | Where to store the backup |
 | `-BackupName` | No | Auto-generated | Custom name for the backup |
-| `-BackupType` | No | From config (`Full`) | Type: `Full` or `Incremental` |
-| `-ReportFormat` | No | From config (`JSON`) | Report format: `JSON`, `HTML`, or `CSV` |
+| `-BackupType` | No | From config or `Full` | Type: `Full` or `Incremental` |
+| `-ReportFormat` | No | From config or `JSON` | Report format: `JSON`, `HTML` or `CSV` |
 | `-ReportOutputPath` | No | From config | Where to save the report |
 | `-Compress` | No | `false` | Compress backup to ZIP |
-| `-ExcludePatterns` | No | From config | Array of patterns to exclude |
-| `-ConfigPath` | No | `config\backup-config.json` | Custom config file path |
+| `-ExcludePatterns` | No | From config or N/A | Array of patterns to exclude |
+| `-ConfigPath` | No | From env or N/A | Custom config file path |
 
 **When to Use Full Backup:**
 - First backup of a new source
@@ -135,10 +227,9 @@ Invoke-FileGuardian @params
 ---
 
 #### 2. Incremental Backup
-
 Backs up only files that changed since the **last backup** (Full or Incremental).
 
-**Basic Usage (splatting):**
+**Basic Usage:**
 ```powershell
 $params = @{
   Action = 'Backup'
@@ -153,7 +244,7 @@ $params = @{
 Invoke-FileGuardian @params
 ```
 
-**Full Example with Exclusions (splatting):**
+**Full Example with Exclusions:**
 ```powershell
 $params = @{
   Action = 'Backup'
@@ -177,9 +268,8 @@ Invoke-FileGuardian @params
 
 **How It Works:**
 1. Compares current files against `latest.json` state
-2. Backs up only **modified** and **new** files
-3. Tracks **deleted** files (in report only)
-4. Updates the state for next backup
+2. Backs up only **modified**, **new** and **deleted** files
+3. Updates the state for next backup
 
 **Backup Chain Example:**
 ```
@@ -193,7 +283,6 @@ Friday:    Full Backup (104 files, 1.15GB)
 **Important Notes:**
 - Requires a previous backup state (`latest.json`)
 - If no previous state exists, automatically performs Full Backup
-- Deleted files are tracked but not backed up
 
 ---
 
@@ -201,13 +290,13 @@ Friday:    Full Backup (104 files, 1.15GB)
 
 Verify the integrity of a backup by checking file hashes.
 
-**Verify Uncompressed Backup (splatting):**
+**Verify Uncompressed Backup:**
 ```powershell
 $verify = @{ Action = 'Verify'; BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000' }
 Invoke-FileGuardian @verify
 ```
 
-**Verify Compressed ZIP Backup (splatting):**
+**Verify Compressed ZIP Backup:**
 ```powershell
 $verify = @{ Action = 'Verify'; BackupPath = 'D:\Backups\WebApp\WebApp-Daily_20251214_020000.zip' }
 Invoke-FileGuardian @verify
@@ -218,7 +307,7 @@ Invoke-FileGuardian @verify
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `-Action` | Yes | Must be `Verify` |
-| `-BackupPath` | Yes | Path to backup directory or ZIP file |
+| `-BackupPath` | Yes | Path to backup or ZIP file |
 
 **What Gets Verified:**
 - File hashes match the backup's own state file
@@ -228,17 +317,22 @@ Invoke-FileGuardian @verify
 
 **Output:**
 ```
-✓ Backup Integrity: INTACT
-  Files Verified: 308
-  Corrupted: 0
-  Missing: 0
+=== Backup Integrity Verification ===
+Backup:    C:\FileGuardian\file_guardian_20251230_195352
+State:     2025-12-30T19:53:53.9648160+01:00
+
+BackupPath     : C:\FileGuardian\Aklaa\backups\file_guardian_20251230_195352
+StateTimestamp : 2025-12-30T19:53:53.9648160+01:00
+IsIntact       : True
+Corrupted      : {}
+Missing        : {}
+Extra          : {}
+Summary        : @{VerifiedCount=316; CorruptedCount=0; MissingCount=0; ExtraCount=0; TotalSourceFiles=316}
 ```
 
 **When to Verify:**
-- After creating a backup (automatic)
-- Before restoring
-- Periodically to check backup health
-- After copying backups to new location
+- After each backup there is aan automatic integrity check
+- To check backup health manually
 
 ---
 
@@ -246,13 +340,13 @@ Invoke-FileGuardian @verify
 
 Verify the digital signature of a backup report.
 
-**Verify HTML Report (splatting):**
+**Verify HTML Report:**
 ```powershell
 $r = @{ Action = 'Report'; ReportPath = 'D:\Reports\Projects\WeeklyFullBackup_20251214_150000_20251214_150230_report.html' }
 Invoke-FileGuardian @r
 ```
 
-**Verify JSON Report (splatting):**
+**Verify JSON Report:**
 ```powershell
 $r = @{ Action = 'Report'; ReportPath = 'D:\Reports\WebApp\WebApp-Daily_20251214_020000_20251214_020145_report.json' }
 Invoke-FileGuardian @r
@@ -272,12 +366,55 @@ Invoke-FileGuardian @r
 
 **Output:**
 ```
-✓ Report Signature: VALID
-  Algorithm: SHA256
-  Hash: 30B28002B1683E02...
+Report signature is VALID
+  Report: fileguardian_20251230_194139_20251230_194142_report.html
+  Signed: 2025-12-30T19:41:42.9357059+01:00
+  By: User@USER
+  ReportPath   : C:\FileGuardian\reports\fileguardian_20251230_194139_20251230_194142_report.html
+  IsValid      : True
+  ExpectedHash : CF1537F97A154A3DE88CA5EF113521F19198EFA735ECB777287FC1B732898271
+  ActualHash   : CF1537F97A154A3DE88CA5EF113521F19198EFA735ECB777287FC1B732898271
+  Algorithm    : SHA256
+  SignedAt     : 2025-12-30T19:41:42.9357059+01:00
+  SignedBy     : User@USER
 ```
 
 ---
+
+### Restore Operations
+
+Restore files from a backup (folder or compressed ZIP). Use the `Restore` action and provide the `-BackupPath` and `-DestinationPath`.
+
+**Restore Uncompressed Backup (folder):**
+```powershell
+$restore = @{
+  Action = 'Restore'
+  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000'
+  DestinationPath = 'C:\Restore\Projects'
+}
+Invoke-FileGuardian @restore
+```
+
+**Restore From ZIP:**
+```powershell
+$restore = @{
+  Action = 'Restore'
+  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000.zip'
+  DestinationPath = 'C:\Restore\Projects'
+}
+Invoke-FileGuardian @restore
+```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `-Action` | Yes | Must be `Restore` |
+| `-BackupPath` | Yes | Path to backup folder or ZIP file |
+| `-DestinationPath` | Yes | Where to restore files |
+
+**What Gets Restored:**
+- Files and directories
 
 ### Cleanup Operations
 
@@ -288,6 +425,7 @@ Manually trigger cleanup to remove old backups based on retention settings. The 
 $cleanupParams = @{
   Action = 'Cleanup'
   BackupName = 'DailyDocuments'
+  ConfigPath = 'C:\config'
 }
 Invoke-FileGuardian @cleanupParams
 
@@ -296,13 +434,13 @@ $cleanupParams = @{
   BackupName = 'DailyDocuments'
   RetentionDays = 30
   CleanupBackupDirectory = 'D:\Backups\Documents'
+  ConfigPath = 'C:\config'
 }
 Invoke-FileGuardian @cleanupParams
 ```
 
 **Notes:**
-- If `-CleanupBackupDirectory` is omitted, FileGuardian uses the backup path from `backup-config.json` for the named backup.
-- The `Cleanup` action returns a result object with properties such as `DeletedCount` and `FreedSpaceMB`.
+- A config file needs to be added manually or with env.
 
 ## Scheduled Backups
 
@@ -345,13 +483,13 @@ Edit `config\backup-config.json` to define your scheduled backups:
 | `SourcePath` | Yes | Directory to backup |
 | `BackupPath` | Yes | Where to store backups |
 | `ReportOutputPath` | Yes | Where to save reports |
-| `BackupType` | Yes | `Full`, `Incremental`, or `Differential` |
+| `BackupType` | Yes | `Full` or `Incremental` |
 | `Schedule.Frequency` | Yes | `Daily`, `Weekly`, or `Hourly` |
 | `Schedule.Time` | Yes | Time in 24-hour format (e.g., "14:30") |
 | `Schedule.DaysOfWeek` | For Weekly | Array of days: `["Monday", "Friday"]` |
 | `CompressBackups` | Yes | `true` or `false` |
 | `ExcludePatterns` | No | Array of exclusion patterns |
-| `ReportFormat` | Yes | `JSON`, `HTML`, or `CSV` |
+| `ReportFormat` | Yes | `JSON`, `HTML` or `CSV` |
 | `RetentionDays` | Yes | How many days to keep backups |
 
 ### Schedule Frequencies
@@ -406,7 +544,7 @@ Invoke-FileGuardian -Action Schedule -Remove
 
 **Avoid scheduling multiple backups at the same time.** Simultaneous backups compete for system resources.
 
-**Recommended:** Stagger backup times by 5-10 minutes.
+**Recommended:** Stagger backup times by 30 minutes.
 
 ```json
 // Good: Staggered times
@@ -422,15 +560,7 @@ Invoke-FileGuardian -Action Schedule -BackupName "DailyDocuments" -Remove
 
 ### Task Behavior
 
-**Background Execution:**
-- Runs as SYSTEM account
-- No password prompt required
-- Runs even when user is not logged in
-- Will wake computer from sleep (if enabled)
-- Continues on battery power
-
 **Missed Tasks:**
-- If computer was off, task runs when it starts
 - Uses `-StartWhenAvailable` flag
 
 **Automatic Retention Cleanup:**
@@ -446,31 +576,6 @@ For each backup task, FileGuardian creates TWO scheduled tasks:
    - Removes old backups based on `RetentionDays` setting
    - Event-driven: only runs after successful backup
    - No manual intervention needed
-
-**Cleanup Action (manual use):**
-
-You can run cleanup manually or invoke the dedicated `Cleanup` action to remove old backups based on retention settings. If you do not pass explicit paths or retention days, FileGuardian will read the configuration file.
-
-**Manual Cleanup Example (from command line):**
-```powershell
-$cleanupParams = @{
-  Action = 'Cleanup'
-  BackupName = 'DailyDocuments'
-}
-Invoke-FileGuardian @cleanupParams
-
-$cleanupParams = @{
-  Action = 'Cleanup'
-  BackupName = 'DailyDocuments'
-  RetentionDays = 30
-  CleanupBackupDirectory = 'D:\Backups\Documents'
-}
-Invoke-FileGuardian @cleanupParams
-```
-
-**Notes:**
-- If `-CleanupBackupDirectory` is not provided, FileGuardian will use the directory configured for the named backup in `backup-config.json`.
-- The `Cleanup` action will return a result object describing `DeletedCount` and `FreedSpaceMB`.
 
 **How It Works:**
 ```
@@ -495,7 +600,6 @@ Get-ScheduledTaskInfo -TaskName "FileGuardian_Cleanup_DailyDocuments"
 ```
 
 ---
-
 ## Configuration
 
 ### Configuration Hierarchy
@@ -548,7 +652,6 @@ Common patterns to exclude:
 ```
 
 ---
-
 ## Reports
 
 Every backup automatically generates a signed report.
@@ -672,46 +775,12 @@ D:\Backups\
 - Incremental backups compare against the correct previous state
 - Integrity verification works properly
 - Reports are accurate and meaningful
-
-**Example Configuration:**
-```powershell
-$pA = @{
-  Action = 'Backup'
-  SourcePath = 'C:\Work\ProjectA'
-  DestinationPath = 'D:\Backups\ProjectA'
-  BackupName = 'ProjectA'
-}
-Invoke-FileGuardian @pA
-
-$pB = @{
-  Action = 'Backup'
-  SourcePath = 'C:\Work\ProjectB'
-  DestinationPath = 'D:\Backups\ProjectB'
-  BackupName = 'ProjectB'
-}
-Invoke-FileGuardian @pB
-```
-
-### Retention Management
-
-**Automatic Cleanup:**
-- Configured via `RetentionDays` in config
-- Can be set globally or per scheduled backup
-- Cleanup runs automatically after each successful backup
-- No manual intervention required
-
-**What Gets Cleaned:**
-- Backup directories older than RetentionDays
-- Compressed ZIP backups older than RetentionDays
-- Orphaned state files (states without corresponding backups)
-- **Always kept:** `latest.json` and `prev.json` state files
-
+- 
 ### Security
 
 **Monitor Integrity:**
 - Check reports regularly
 - Verify critical backups monthly
-- Review cleanup logs to ensure proper retention
 
 ### Performance
 
@@ -727,7 +796,7 @@ Invoke-FileGuardian @pB
 
 ### Retention
 
-**Clean Old Backups:**
+**Clean old backups manually:**
 ```powershell
 # Manual cleanup (example)
 Get-ChildItem "D:\Backups" -Filter "*.zip" | 
@@ -739,7 +808,7 @@ Get-ChildItem "D:\Backups" -Filter "*.zip" |
 
 ## Support
 
-For issues, feature requests, or questions:
+For issues, feature requests or questions:
 - Check logs in configured `LogDirectory`
 - Review reports for detailed backup information
 - Check `README.md` for author(s)

@@ -54,6 +54,36 @@ function Invoke-Restore {
             catch {
                 throw ("Failed to apply backup {0}: {1}" -f $backup.Path, $_.Exception.Message)
             }
+
+            # Apply deletions declared in this backup's metadata (if any)
+            if ($backup.Metadata -and $backup.Metadata.DeletedFiles) {
+                $baseRestore = (Resolve-Path -Path $RestoreDirectory).Path
+                foreach ($rel in $backup.Metadata.DeletedFiles) {
+                    try {
+                        # Normalize and ensure deletion stays inside restore directory
+                        $candidate = Join-Path $RestoreDirectory $rel
+                        $resolved = Resolve-Path -LiteralPath $candidate -ErrorAction SilentlyContinue
+                        if (-not $resolved) {
+                            # Path doesn't exist in restore target, nothing to remove
+                            continue
+                        }
+                        $resolvedPath = $resolved.Path
+                        if (-not ($resolvedPath.StartsWith($baseRestore, [System.StringComparison]::OrdinalIgnoreCase))) {
+                            Write-Log -Message ("Skipping unsafe delete path: {0}" -f $resolvedPath) -Level Warning
+                            continue
+                        }
+
+                        # Remove file or folder
+                        if (Test-Path $resolvedPath) {
+                            Remove-Item -Path $resolvedPath -Recurse -Force -ErrorAction Stop
+                            Write-Log -Message ("Deleted path from restore per metadata: {0}" -f $rel) -Level Info
+                        }
+                    }
+                    catch {
+                        Write-Log -Message ("Failed to apply deletion '{0}': {1}" -f $rel, $_.Exception.Message) -Level Warning
+                    }
+                }
+            }
         }
     }
     finally {

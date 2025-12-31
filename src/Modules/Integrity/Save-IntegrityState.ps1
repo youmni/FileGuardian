@@ -17,10 +17,13 @@ function Save-IntegrityState {
     .PARAMETER BackupName
         Optional backup name to create a backup-specific state file
     
+    .PARAMETER ExcludePatterns
+        Array of file patterns to exclude from the integrity state (such as "*.tmp", "*.log", "node_modules/**").
+        
     .EXAMPLE
         Save-IntegrityState -SourcePath "C:\Data"
         Saves integrity state for C:\Data
-    
+
     .EXAMPLE
         Save-IntegrityState -SourcePath "C:\Data" -BackupName "MyBackup_20251214_120000"
         Saves both general and backup-specific integrity state
@@ -30,12 +33,15 @@ function Save-IntegrityState {
         [Parameter(Mandatory=$true)]
         [ValidateScript({ Test-Path $_ })]
         [string]$SourcePath,
-        
+
         [Parameter()]
         [string]$StateDirectory = ".\states",
-        
+
         [Parameter()]
-        [string]$BackupName
+        [string]$BackupName,
+
+        [Parameter()]
+        [string[]]$ExcludePatterns
     )
     
     Begin {
@@ -58,6 +64,27 @@ function Save-IntegrityState {
             Write-Verbose "Calculating file hashes..."
             $rawHashes = @(Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $StateDirectory)
             $rawHashes = $rawHashes | Where-Object { $_ -ne $null }
+
+            if ($ExcludePatterns -and $ExcludePatterns.Count -gt 0) {
+                $rawHashes = $rawHashes | Where-Object {
+                    $rel = $_.RelativePath
+                    if ($rel) { $rel = $rel.TrimStart('\','/') }
+                    $excluded = $false
+                    foreach ($pattern in $ExcludePatterns) {
+                        if ($pattern -match '^[^*?]+(\\|/)?\*\*?$' -or $pattern -match '^[^*?]+$') {
+                            $dirName = $pattern -replace '[\\/]*\*\*?$', ''
+                            if ($rel -replace '/', '\' -match "(^|\\)" + [regex]::Escape($dirName) + "(\\|$)") {
+                                $excluded = $true
+                                break
+                            }
+                        } elseif ($rel -like $pattern) {
+                            $excluded = $true
+                            break
+                        }
+                    }
+                    -not $excluded
+                }
+            }
 
             # Normalize entries to ensure stable keys for caching and JSON serialization
             $normalizedFiles = @()

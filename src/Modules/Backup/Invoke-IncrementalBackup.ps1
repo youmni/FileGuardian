@@ -189,7 +189,13 @@ function Invoke-IncrementalBackup {
                 foreach ($file in $currentFiles) {
                     $excluded = $false
                     foreach ($pattern in $ExcludePatterns) {
-                        if ($file.RelativePath -like $pattern) {
+                        if ($pattern -match '^[^*?]+(\\|/)?\*\*?$' -or $pattern -match '^[^*?]+$') {
+                            $dirName = $pattern -replace '[\\/]*\*\*?$', ''
+                            if ($file.RelativePath -replace '/', '\' -match "(^|\\)" + [regex]::Escape($dirName) + "(\\|$)") {
+                                $excluded = $true
+                                break
+                            }
+                        } elseif ($file.RelativePath -like $pattern) {
                             $excluded = $true
                             break
                         }
@@ -234,7 +240,7 @@ function Invoke-IncrementalBackup {
             $filesToBackup = $changedFiles + $newFiles
             $totalFiles = $filesToBackup.Count
             
-            if ($totalFiles -eq 0) {
+            if ($totalFiles -eq 0 -and $deletedFiles.Count -eq 0) {
                 Write-Log -Message "No changes detected. Backup not needed." -Level Info
                 $endTime = Get-Date
                 $duration = $null
@@ -249,8 +255,8 @@ function Invoke-IncrementalBackup {
                     FilesBackedUp = 0
                     FilesChanged = 0
                     FilesNew = 0
-                    FilesDeleted = $deletedFiles.Count
-                    DeletedFiles = $deletedFiles
+                    FilesDeleted = 0
+                    DeletedFiles = @()
                     TotalSizeMB = 0
                     Compressed = $false
                     ChangesDetected = $false
@@ -258,6 +264,7 @@ function Invoke-IncrementalBackup {
                     Duration = $duration
                 }
             }
+            $ChangesDetected = ($totalFiles -gt 0 -or $deletedFiles.Count -gt 0)
             
             $totalSize = ($filesToBackup | Measure-Object -Property Size -Sum).Sum
             
@@ -294,7 +301,7 @@ function Invoke-IncrementalBackup {
             
             # Save backup metadata for integrity verification before compression
             $metadataTargetPath = if ($Compress) { Join-Path $tempDir ".backup-metadata.json" } else { Join-Path $backupDestination ".backup-metadata.json" }
-            Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp
+            Save-BackupMetadata -BackupType "Incremental" -SourcePath $SourcePath -Timestamp $timestamp -FilesBackedUp $copiedFiles -TargetPath $metadataTargetPath -BaseBackup $previousState.Timestamp -DeletedFiles $deletedFiles -Files ($filesToBackup | ForEach-Object { $_.RelativePath })
             Write-Log -Message "Backup metadata saved to: $metadataTargetPath" -Level Info
             
             # Handle compression or return direct copy info

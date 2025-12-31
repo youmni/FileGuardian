@@ -24,6 +24,8 @@ Describe "Read-Config" {
             }
         }
         $script:ValidConfig | ConvertTo-Json -Depth 5 | Set-Content -Path $script:TestConfigPath
+
+        $script:FileGuardian_CachedConfig = $script:ValidConfig
     }
     Context "Valid Configuration File" {
 

@@ -2,6 +2,7 @@ BeforeAll {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $script:BackupModulePath = Join-Path $ProjectRoot "src\Modules\Backup"
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
+    $script:ReportingModulePath = Join-Path $ProjectRoot "src\Modules\Reporting"
     
     # Import Logging module first (dependency)
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
@@ -11,6 +12,10 @@ BeforeAll {
         . $_.FullName
     }
     . (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1")
+    # Dot-source reporting output functions so reports can be generated during tests
+    if (Test-Path $script:ReportingModulePath) {
+        Get-ChildItem -Path $script:ReportingModulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
+    }
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
     Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
@@ -84,11 +89,11 @@ Describe "Invoke-IncrementalBackup" {
             Timestamp = (Get-Date).ToString('yyyyMMdd_HHmmss')
             FileCount = 5
             Files = @(
-                @{ RelativePath = 'file1.txt'; Hash = 'hash1' },
-                @{ RelativePath = 'file2.txt'; Hash = 'hash2' },
-                @{ RelativePath = 'temp.tmp'; Hash = 'hash3' },
-                @{ RelativePath = 'test.log'; Hash = 'hash4' },
-                @{ RelativePath = 'SubFolder\file3.txt'; Hash = 'hash5' }
+                @{ RelativePath = 'file1.txt'; Hash = 'hash1'; Size = 14; LastWriteTime = (Get-Date).ToString('o') },
+                @{ RelativePath = 'file2.txt'; Hash = 'hash2'; Size = 14; LastWriteTime = (Get-Date).ToString('o') },
+                @{ RelativePath = 'temp.tmp'; Hash = 'hash3'; Size = 9; LastWriteTime = (Get-Date).ToString('o') },
+                @{ RelativePath = 'test.log'; Hash = 'hash4'; Size = 8; LastWriteTime = (Get-Date).ToString('o') },
+                @{ RelativePath = 'SubFolder\file3.txt'; Hash = 'hash5'; Size = 16; LastWriteTime = (Get-Date).ToString('o') }
             )
         }
         $latestFile = Join-Path $stateDir "latest.json"

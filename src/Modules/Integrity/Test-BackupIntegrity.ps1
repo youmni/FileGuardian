@@ -145,6 +145,22 @@ function Test-BackupIntegrity {
             $missing = @()
             $extra = @()
             $verified = @()
+
+            if ($isIncrementalOrDifferential -and $backupMetadata -and $backupMetadata.FilesIncluded) {
+                foreach ($relPath in $backupMetadata.FilesIncluded) {
+                    $normRel = $relPath -replace '/','\\'
+                    if ($currentHash.ContainsKey($relPath)) {
+                        $verified += $currentHash[$relPath]
+                    }
+                    elseif ($currentHash.ContainsKey($normRel)) {
+                        $verified += $currentHash[$normRel]
+                    }
+                    else {
+                        Write-Verbose "Missing included file from metadata: $relPath"
+                        $missing += [PSCustomObject]@{ RelativePath = $relPath }
+                    }
+                }
+            }
             
             # Check files in state
             foreach ($path in $stateHash.Keys) {
@@ -182,7 +198,6 @@ function Test-BackupIntegrity {
                 BackupPath = $BackupPath
                 StateTimestamp = $state.Timestamp
                 IsIntact = $isIntact
-                Verified = $verified
                 Corrupted = $corrupted
                 Missing = $missing
                 Extra = $extra
@@ -191,7 +206,7 @@ function Test-BackupIntegrity {
                     CorruptedCount = $corrupted.Count
                     MissingCount = $missing.Count
                     ExtraCount = $extra.Count
-                    TotalFiles = $state.FileCount
+                    TotalSourceFiles = $state.FileCount
                 }
             }
             

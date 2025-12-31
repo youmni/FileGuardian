@@ -126,7 +126,13 @@ function Invoke-FullBackup {
                     $relativePath = $_.FullName.Substring($absoluteSourcePath.Length).TrimStart([char]'\',[char]'/')
                     $excluded = $false
                     foreach ($pattern in $ExcludePatterns) {
-                        if ($relativePath -like $pattern) {
+                        if ($pattern -match '^[^*?]+(\\|/)?\*\*?$' -or $pattern -match '^[^*?]+$') {
+                            $dirName = $pattern -replace '[\\/]*\*\*?$', ''
+                            if ($relativePath -replace '/', '\' -match "(^|\\)" + [regex]::Escape($dirName) + "(\\|$)") {
+                                $excluded = $true
+                                break
+                            }
+                        } elseif ($relativePath -like $pattern) {
                             $excluded = $true
                             break
                         }

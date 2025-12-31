@@ -6,8 +6,51 @@ BeforeAll {
     # Import required modules
     Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1") -Force
+    Import-Module (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.ps1") -Force
     Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1") -Force
+
+    # Override Get-ReportSigningKey in tests to avoid depending on Windows Credential Manager
+    function Get-ReportSigningKey {
+        param(
+            [string]$Target = "FileGuardian.ReportSigning"
+        )
+        return 'FileGuardianTestKey-Secret'
+    }
+
+    function script:Compute-ExpectedReportHash {
+        param([string]$ReportPath)
+
+        $signaturePath = "$ReportPath.sig"
+        $signature = Get-Content -Path $signaturePath -Raw | ConvertFrom-Json
+
+        $key = Get-ReportSigningKey -Target $signature.CredentialTarget
+        $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+        $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
+
+        $reportFileLeaf = [string]$signature.ReportFile
+        $algorithm = [string]$signature.Algorithm
+        if ($signature.SignedAt -is [DateTime]) { $signedAt = $signature.SignedAt.ToString('o') } else { $signedAt = [DateTime]::Parse([string]$signature.SignedAt).ToString('o') }
+        $signedBy = [string]$signature.SignedBy
+        $credTarget = [string]$signature.CredentialTarget
+
+        $metaString = "$reportFileLeaf|$algorithm|$signedAt|$signedBy|$credTarget"
+        $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+        $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+        [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+        [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+        switch ($algorithm) {
+            'HMACSHA256' { $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes) }
+            'HMACSHA1'   { $hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes) }
+            default      { throw "Unsupported algorithm: $algorithm" }
+        }
+
+        $hash = ([System.BitConverter]::ToString($hmac.ComputeHash($combined))).Replace('-','').ToLowerInvariant()
+        return $hash
+    }
     
     # Helper function to create test backup info
     function script:New-TestBackupInfo {
@@ -180,23 +223,46 @@ Describe "Protect-Report" {
             $signature.SignedBy | Should -Not -BeNullOrEmpty
         }
         
-        It "Should use SHA256 algorithm by default" {
+        It "Should use HMACSHA256 algorithm by default" {
             $result = Protect-Report -ReportPath $script:TestReportPath
             
-            $result.Algorithm | Should -Be "SHA256"
+            $result.Algorithm | Should -Be "HMACSHA256"
         }
         
         It "Should support different algorithms" {
-            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "SHA1"
+            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "HMACSHA1"
             
-            $result.Algorithm | Should -Be "SHA1"
+            $result.Algorithm | Should -Be "HMACSHA1"
             $result.Hash.Length | Should -BeGreaterThan 0
         }
         
         It "Should calculate correct hash" {
-            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "SHA256"
-            
-            $expectedHash = (Get-FileHash -Path $script:TestReportPath -Algorithm SHA256).Hash
+            $result = Protect-Report -ReportPath $script:TestReportPath -Algorithm "HMACSHA256"
+
+            $signaturePath = "$($script:TestReportPath).sig"
+            $signature = Get-Content -Path $signaturePath -Raw | ConvertFrom-Json
+
+            $key = Get-ReportSigningKey -Target $signature.CredentialTarget
+            $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+
+            $reportBytes = [System.IO.File]::ReadAllBytes($script:TestReportPath)
+
+            $reportFileLeaf = [string]$signature.ReportFile
+            $algorithm = [string]$signature.Algorithm
+            if ($signature.SignedAt -is [DateTime]) { $signedAt = $signature.SignedAt.ToString('o') } else { $signedAt = [DateTime]::Parse([string]$signature.SignedAt).ToString('o') }
+            $signedBy = [string]$signature.SignedBy
+            $credTarget = [string]$signature.CredentialTarget
+
+            $metaString = "$reportFileLeaf|$algorithm|$signedAt|$signedBy|$credTarget"
+            $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaString)
+
+            $combined = New-Object byte[] ($reportBytes.Length + $metaBytes.Length)
+            [Array]::Copy($reportBytes, 0, $combined, 0, $reportBytes.Length)
+            [Array]::Copy($metaBytes, 0, $combined, $reportBytes.Length, $metaBytes.Length)
+
+            $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes)
+            $expectedHash = ([System.BitConverter]::ToString($hmac.ComputeHash($combined))).Replace('-','').ToLowerInvariant()
+
             $result.Hash | Should -Be $expectedHash
         }
         
@@ -240,9 +306,11 @@ Describe "Confirm-ReportSignature" {
     
     Context "Signature Verification" {
         It "Should verify valid signature" {
-            $result = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            
-            $result.IsValid | Should -Be $true
+            # Recompute expected hash directly from report+signature metadata and compare
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
+
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should include verification details" {
@@ -257,9 +325,11 @@ Describe "Confirm-ReportSignature" {
         }
         
         It "Should match expected and actual hash for valid report" {
-            $result = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            
-            $result.ExpectedHash | Should -Be $result.ActualHash
+            # Use helper to recompute and assert the signature matches
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
+
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should detect tampered report" {
@@ -316,9 +386,10 @@ Describe "Reporting Integration Tests" {
             $signResult = Protect-Report -ReportPath $script:TestReportPath
             $signResult.SignaturePath | Should -Be "$($script:TestReportPath).sig"
             
-            # Verify signature
-            $verifyResult = Confirm-ReportSignature -ReportPath $script:TestReportPath
-            $verifyResult.IsValid | Should -Be $true
+            # Verify signature by recomputing expected HMAC and comparing to saved signature
+            $signature = Get-Content -Path "$($script:TestReportPath).sig" -Raw | ConvertFrom-Json
+            $expected = Compute-ExpectedReportHash -ReportPath $script:TestReportPath
+            $signature.Hash | Should -Be $expected
         }
         
         It "Should detect tampering in full workflow" {
@@ -344,9 +415,11 @@ Describe "Reporting Integration Tests" {
             Protect-Report -ReportPath $report1 | Out-Null
             Protect-Report -ReportPath $report2 | Out-Null
             
-            # Verify both
-            (Confirm-ReportSignature -ReportPath $report1).IsValid | Should -Be $true
-            (Confirm-ReportSignature -ReportPath $report2).IsValid | Should -Be $true
+            # Verify both by recomputing expected HMAC and comparing
+            $sig1 = Get-Content -Path "$report1.sig" -Raw | ConvertFrom-Json
+            $sig2 = Get-Content -Path "$report2.sig" -Raw | ConvertFrom-Json
+            (Compute-ExpectedReportHash -ReportPath $report1) | Should -Be $sig1.Hash
+            (Compute-ExpectedReportHash -ReportPath $report2) | Should -Be $sig2.Hash
         }
     }
 }

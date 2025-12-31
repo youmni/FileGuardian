@@ -63,6 +63,11 @@ function Initialize-BackupConfiguration {
         }
         if ($config) {
             Write-Log -Message "Configuration loaded successfully" -Level Info
+
+            # Set log directory as environment variable for Write-Log
+            if ($config.GlobalSettings.LogDirectory) {
+                $env:FILEGUARDIAN_LOG_DIRECTORY = $config.GlobalSettings.LogDirectory
+            }
         }
     }
     catch {
