@@ -189,7 +189,13 @@ function Invoke-IncrementalBackup {
                 foreach ($file in $currentFiles) {
                     $excluded = $false
                     foreach ($pattern in $ExcludePatterns) {
-                        if ($file.RelativePath -like $pattern) {
+                        if ($pattern -match '^[^*?]+(\\|/)?\*\*?$' -or $pattern -match '^[^*?]+$') {
+                            $dirName = $pattern -replace '[\\/]*\*\*?$', ''
+                            if ($file.RelativePath -replace '/', '\' -match "(^|\\)" + [regex]::Escape($dirName) + "(\\|$)") {
+                                $excluded = $true
+                                break
+                            }
+                        } elseif ($file.RelativePath -like $pattern) {
                             $excluded = $true
                             break
                         }

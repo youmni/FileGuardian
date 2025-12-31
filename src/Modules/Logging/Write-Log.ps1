@@ -25,48 +25,24 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     
-    # Set log path (try config first, then default)
     $dateStamp = Get-Date -Format "yyyyMMdd"
-    $logDir = $null
-    
-    # Load configuration via Read-Config only when a config path is explicitly provided.
-    # Cache result in script scope to avoid repeated reads on every log call.
-    if (-not (Get-Variable -Scope Script -Name FileGuardian_CachedConfig -ErrorAction SilentlyContinue)) {
-        $script:FileGuardian_CachedConfig = $null
+    if (-not (Get-Variable -Scope Script -Name FileGuardian_LogDir -ErrorAction SilentlyContinue)) {
+        $script:FileGuardian_LogDir = $null
     }
 
-    if (-not $script:FileGuardian_CachedConfig) {
-        try {
-            if (-not [string]::IsNullOrWhiteSpace($env:FILEGUARDIAN_CONFIG_PATH)) {
-                $script:FileGuardian_CachedConfig = Read-Config -ConfigPath $env:FILEGUARDIAN_CONFIG_PATH
-            }
-            else {
-                $script:FileGuardian_CachedConfig = $null
-            }
+    if (-not $script:FileGuardian_LogDir) {
+        if ($env:FILEGUARDIAN_LOG_DIRECTORY) {
+            $script:FileGuardian_LogDir = $env:FILEGUARDIAN_LOG_DIRECTORY
         }
-        catch {
-            Write-Verbose "Read-Config failed or no config path provided: $_"
-            $script:FileGuardian_CachedConfig = $null
-        }
-    }
-
-    $config = $script:FileGuardian_CachedConfig
-    
-    # Default to config or appropriate system-wide location if no config
-    if (-not $logDir) {
-        if ($config -and $config.GlobalSettings.LogDirectory) {
-            $logDir = $config.GlobalSettings.LogDirectory
+        elseif ($env:ProgramData) {
+            $script:FileGuardian_LogDir = Join-Path $env:ProgramData "FileGuardian\logs"
         }
         else {
-            if ($env:ProgramData) {
-                $logDir = Join-Path $env:ProgramData "FileGuardian\logs"
-            }
-            else {
-                $logDir = Join-Path $env:LOCALAPPDATA "FileGuardian\logs"
-            }
+            $script:FileGuardian_LogDir = Join-Path $env:LOCALAPPDATA "FileGuardian\logs"
         }
     }
-    
+
+    $logDir = $script:FileGuardian_LogDir
     $logPath = Join-Path $logDir "fileguardian_$dateStamp.log"
     
     # Log rotation: remove old log files older than retention period

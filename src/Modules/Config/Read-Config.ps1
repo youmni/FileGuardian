@@ -5,12 +5,16 @@ function Read-Config {
     
     .DESCRIPTION
         Loads the JSON configuration file and returns a PowerShell object
-        containing all backup settings.
+        containing all backup settings. Caches the result to avoid repeated
+        file reads and logging.
     
     .PARAMETER ConfigPath
         Absolute path to the configuration JSON file. No relative paths are used.
         If omitted, the environment variable `FILEGUARDIAN_CONFIG_PATH` must
         be set to the absolute path of the config file.
+    
+    .PARAMETER Force
+        Force reload of configuration, bypassing cache.
     
     .EXAMPLE
         $config = Read-Config
@@ -19,41 +23,57 @@ function Read-Config {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [string]$ConfigPath = $null
+        [string]$ConfigPath = $null,
+        
+        [Parameter()]
+        [switch]$Force
     )
     
     try {
-        if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+        # Determine the actual config path
+        $actualPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
             if ([string]::IsNullOrWhiteSpace($env:FILEGUARDIAN_CONFIG_PATH)) {
                 throw "No configuration path provided. Specify -ConfigPath with an absolute path or set FILEGUARDIAN_CONFIG_PATH to the absolute path of the config file."
             }
-
-            $ConfigPath = $env:FILEGUARDIAN_CONFIG_PATH
+            $env:FILEGUARDIAN_CONFIG_PATH
+        } else {
+            $ConfigPath
         }
 
-        # Require that provided paths are files and exist.
-        $resolved = Resolve-Path -LiteralPath $ConfigPath -ErrorAction SilentlyContinue
-        if ($resolved) { $ConfigPath = $resolved.ProviderPath }
+        # Resolve to absolute path
+        $resolved = Resolve-Path -LiteralPath $actualPath -ErrorAction SilentlyContinue
+        if ($resolved) { $actualPath = $resolved.ProviderPath }
 
-        if (-not (Test-Path $ConfigPath)) {
-            throw "Configuration file not found at: $ConfigPath"
+        if (-not (Get-Variable -Scope Script -Name FileGuardian_ConfigCache -ErrorAction SilentlyContinue)) {
+            $script:FileGuardian_ConfigCache = @{}
         }
 
-        $item = Get-Item -LiteralPath $ConfigPath
+        if (-not $Force -and $script:FileGuardian_ConfigCache.ContainsKey($actualPath)) {
+            return $script:FileGuardian_ConfigCache[$actualPath]
+        }
+
+        if (-not (Test-Path $actualPath)) {
+            throw "Configuration file not found at: $actualPath"
+        }
+
+        $item = Get-Item -LiteralPath $actualPath
         if ($item.PSIsContainer) {
             throw "Provided FILEGUARDIAN_CONFIG_PATH or -ConfigPath is a directory. Provide the absolute path to the config file."
         }
 
-        Write-Log -Message "Reading configuration from: $ConfigPath" -Level Info
-        $configContent = Get-Content -Path $ConfigPath -Raw -ErrorAction Stop
+        Write-Log -Message "Reading configuration from: $actualPath" -Level Info
+        $configContent = Get-Content -Path $actualPath -Raw -ErrorAction Stop
         
         if ([string]::IsNullOrWhiteSpace($configContent)) {
-            throw "Configuration file is empty: $ConfigPath"
+            throw "Configuration file is empty: $actualPath"
         }
         
         $config = $configContent | ConvertFrom-Json -ErrorAction Stop
         
         Write-Log -Message "Configuration loaded successfully" -Level Info
+        
+        $script:FileGuardian_ConfigCache[$actualPath] = $config
+        
         return $config
     }
     catch {
