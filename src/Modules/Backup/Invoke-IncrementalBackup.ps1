@@ -240,7 +240,7 @@ function Invoke-IncrementalBackup {
             $filesToBackup = $changedFiles + $newFiles
             $totalFiles = $filesToBackup.Count
             
-            if ($totalFiles -eq 0) {
+            if ($totalFiles -eq 0 -and $deletedFiles.Count -eq 0) {
                 Write-Log -Message "No changes detected. Backup not needed." -Level Info
                 $endTime = Get-Date
                 $duration = $null
@@ -255,8 +255,8 @@ function Invoke-IncrementalBackup {
                     FilesBackedUp = 0
                     FilesChanged = 0
                     FilesNew = 0
-                    FilesDeleted = $deletedFiles.Count
-                    DeletedFiles = $deletedFiles
+                    FilesDeleted = 0
+                    DeletedFiles = @()
                     TotalSizeMB = 0
                     Compressed = $false
                     ChangesDetected = $false
@@ -264,6 +264,7 @@ function Invoke-IncrementalBackup {
                     Duration = $duration
                 }
             }
+            $ChangesDetected = ($totalFiles -gt 0 -or $deletedFiles.Count -gt 0)
             
             $totalSize = ($filesToBackup | Measure-Object -Property Size -Sum).Sum
             
