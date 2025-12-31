@@ -21,20 +21,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: test module
-        id: test_module
+      - name: test module (group 1)
+        id: test_module_1
         uses: zyborg/pester-tests-report@v1
         with:
-          include_paths: tests
-          exclude_paths: tests/powershell1,tests/powershell2
+          include_paths: tests/FullBackup.Tests.ps1,tests/IncrementalBackup.Tests.ps1,tests/Integrity.Tests.ps1,tests/Logging.Tests.ps1
           exclude_tags: skip_ci
-          report_name: module_tests
-          report_title: My Module Tests
+          report_name: module_tests_part1
+          report_title: Module Tests (part 1)
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: dump test results
+      - name: dump test results (group 1)
         shell: pwsh
         run: |
-          Write-Host 'Total Tests Executed...:  ${{ steps.test_module.outputs.total_count }}'
-          Write-Host 'Total Tests PASSED.....:  ${{ steps.test_module.outputs.passed_count }}'
-          Write-Host 'Total Tests FAILED.....:  ${{ steps.test_module.outputs.failed_count }}'
+          Write-Host 'Group1 - Total Executed...:  ${{ steps.test_module_1.outputs.total_count }}'
+          Write-Host 'Group1 - Passed.....:  ${{ steps.test_module_1.outputs.passed_count }}'
+          Write-Host 'Group1 - Failed.....:  ${{ steps.test_module_1.outputs.failed_count }}'
+
+      - name: test module (group 2)
+        id: test_module_2
+        uses: zyborg/pester-tests-report@v1
+        with:
+          include_paths: tests/Restore.Tests.ps1,tests/RetentionCleanup.Tests.ps1,tests/Reporting.Tests.ps1,tests/Config.Tests.ps1
+          exclude_tags: skip_ci
+          report_name: module_tests_part2
+          report_title: Module Tests (part 2)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: dump test results (group 2)
+        shell: pwsh
+        run: |
+          Write-Host 'Group2 - Total Executed...:  ${{ steps.test_module_2.outputs.total_count }}'
+          Write-Host 'Group2 - Passed.....:  ${{ steps.test_module_2.outputs.passed_count }}'
+          Write-Host 'Group2 - Failed.....:  ${{ steps.test_module_2.outputs.failed_count }}'
