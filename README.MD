@@ -8,7 +8,7 @@
 
 FileGuardian is a robust, modular PowerShell-based backup solution designed to automate file backups while ensuring data integrity through SHA256 cryptographic verification. The system helps prevent data loss and undetected file corruption by validating every backup operation and maintaining detailed audit trails through digitally signed reports.
 
-FileGuardian offers flexible backup strategies, automated scheduling via Windows Task Scheduler and comprehensive reporting capabilities—all through a unified command-line interface.
+FileGuardian offers flexible backup strategies, automated scheduling via Windows Task Scheduler and comprehensive reporting capabilities. All through a unified command-line interface.
 
 ---
 
@@ -95,6 +95,7 @@ Comprehensive guides are available in the `docs/` directory:
 
 - **[UserGuide.md](docs/UserGuide.md)** - Complete usage documentation with examples for all operations (Backup, Verify, Report, Restore, Schedule and  Cleanup)
 - **[DeveloperGuide.md](docs/DeveloperGuide.md)** - System Overview, Project Structure, Architecture Design, Module Breakdown, Data Flow & State Management 
+- **AI Assistance** - Used prompts and Generative AI disclosure (see below)
 
 ---
 
@@ -128,16 +129,40 @@ Comprehensive guides are available in the `docs/` directory:
 - [Powershell Documentation](https://learn.microsoft.com/en-us/powershell/)
 - [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-7.5)
 - [Pester Documentation](https://pester.dev/docs/quick-start)
-- [CI Workflow](https://docs.github.com/en/actions/tutorials/build-and-test-code/powershell)
-- 
+- [CI Workflow](https://chatgpt.com/share/6955b20c-0c14-8007-8ec1-9b7525d9f1de)
 ---
+
+
+## AI Assistance
+
+### Used Prompts in claude 4.5 sonnet vs code
+
+I have noticed that when I sign a report, I currently only store a hash. If someone were to modify the report and then include the new hash in the signature, this would go unnoticed.
+
+To prevent this, I would like to use an HMAC, specifically HMAC‑SHA256. The hash should be calculated over the report content including the metadata and the report number bytes and the HMAC should be stored together with the signature.
+
+I would like you to implement this approach for the reports. Additionally, I want this to work with the Credential Manager, so that the secret key used for the HMAC is stored securely rather than hard‑coded or stored in configuration files.
+
+Please also provide the command needed to store the secret in the Credential Manager.
+
+-----------------------------
+
+Based on my main orchestrator, Invoke-FileGuardian, create a comprehensive user guide that explains the structure and workflow in detail. The guide should provide step-by-step instructions for effective usage, with a professional layout featuring clear headings, subheadings and sections. Include examples illustrating typical usage scenarios, along with notes, tips and best practices to enhance understanding. Make sure to clearly explain all parameters, inputs and outputs. Including the data structures, so that the guide is readable and accessible for both beginners and advanced technical users.
+
+------------------------------
+
+How to implement a restore process for full and incremental backups. Focus on explaining the overall workflow.
+
+### Generative AI disclosure
+AI tools were used to assist with this project, as referenced in the links and VS Code prompts above. All content produced with AI was carefully reviewed to ensure full understanding and accuracy. Most of the comment-based help, was initially generated with the help of auto-completion, but every section was thoroughly read and verified.
+
 
 ## Testing
 
 FileGuardian includes comprehensive test coverage using Pester.
 
 **CI/CD:**  
-Automated testing runs via GitHub Actions on every push to `feature/*` and `fix/*` branches, with results published as test artifacts.
+Automated testing runs via GitHub Actions on every push to `feature/*`, `fix/*`, `improvement/*` and `main` branches, with results published as test artifacts.
 
 ---
 
