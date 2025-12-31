@@ -14,14 +14,14 @@
   "ScheduledBackups": [
     {
       "Name": "aklaa",
-      "Enabled": false,
+      "Enabled": true,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
       "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
       "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",
       "BackupType": "Full",
       "Schedule": {
         "Frequency": "Daily",
-        "Time": "20:41",
+        "Time": "16:23",
         "DaysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
       },
       "CompressBackups": true,

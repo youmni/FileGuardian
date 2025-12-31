@@ -38,7 +38,10 @@ function Register-BackupSchedule {
         [string]$BackupName,
         
         [Parameter()]
-        [switch]$Remove
+        [switch]$Remove,
+
+        [Parameter()]
+        [switch]$RunAsCurrentUser
     )
     
     begin {
@@ -72,12 +75,8 @@ function Register-BackupSchedule {
         # Get project root for script path
         $moduleRoot = Split-Path -Parent $PSScriptRoot
         $projectRoot = Split-Path -Parent (Split-Path -Parent $moduleRoot)
-        $startScript = Join-Path $projectRoot "Start-FileGuardian.ps1"
         $modulePath = Join-Path $projectRoot "src\FileGuardian.psm1"
-        
-        if (-not (Test-Path $startScript)) {
-            throw "Start-FileGuardian.ps1 not found at: $startScript"
-        }
+    
         
         Write-Log -Message "=== FileGuardian Schedule Management ===" -Level Info
     }
@@ -189,9 +188,10 @@ function Register-BackupSchedule {
                 }
             }
             
-            # Principal - run as SYSTEM for background execution
-            $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-            
+                $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType S4U -RunLevel Highest
+                Write-Log -Message "Registering tasks to run as user: $currentUser (S4U)" -Level Info
+
             $settingsParams = @{
                 AllowStartIfOnBatteries = $true
                 DontStopIfGoingOnBatteries = $true
@@ -226,8 +226,7 @@ function Register-BackupSchedule {
                 continue
             }
             
-            # === CREATE CLEANUP TASK (runs after backup completes) ===
-            
+            # Create Cleanup Task            
             # Determine retention days
             $retentionDays = if ($backup.RetentionDays) {
                 $backup.RetentionDays
@@ -241,7 +240,7 @@ function Register-BackupSchedule {
             # Build cleanup command using module and Invoke-FileGuardian
             $cleanupCmdParts = @()
             $cleanupCmdParts += "Import-Module '$modulePath'"
-            $cleanupInvoke = "Invoke-FileGuardian -Action Cleanup -BackupName '$($backup.Name)'"
+            $cleanupInvoke = "Invoke-FileGuardian -Action Cleanup -BackupName '$($backup.Name)' -RetentionDays $retentionDays"
             $cleanupCmdParts += $cleanupInvoke
             $cleanupCommand = $cleanupCmdParts -join '; '
             $cleanupArgumentString = '-NoProfile -ExecutionPolicy Bypass -Command "' + $cleanupCommand + '"'
