@@ -94,7 +94,7 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
 Comprehensive guides are available in the `docs/` directory:
 
 - **[UserGuide.md](docs/UserGuide.md)** - Complete usage documentation with examples for all operations (Backup, Verify, Report, Restore, Schedule and  Cleanup)
-- **[DeveloperGuide.md](docs/DeveloperGuide.md)** - Architecture overview, module structure, development workflow and contribution guidelines
+- **[DeveloperGuide.md](docs/DeveloperGuide.md)** - System Overview, Project Structure, Architecture Design, Module Breakdown, Data Flow & State Management 
 
 ---
 
@@ -102,6 +102,7 @@ Comprehensive guides are available in the `docs/` directory:
 
 **Core Technologies:**
 - PowerShell 5.1+
+- Windows Credential Manager
 - Windows Task Scheduler
 - Pester
 
