@@ -108,6 +108,30 @@ Comprehensive guides are available in the `docs/` directory:
 
 ---
 
+## Sources
+- [Project Structure](https://chatgpt.com/share/6955997b-37d0-8007-8a27-72da58a47fd7)
+- [MVP Approach](https://chatgpt.com/share/695597dd-da1c-8007-96ac-03d807df2617)
+- [Better Hashing Approach](https://claude.ai/share/e62c59dc-6833-476e-993d-2ee6c99516b4)
+- [Temp Cleanup](https://claude.ai/share/2df9cb6c-f4b6-4e75-95b4-011bac1fa85a)
+- [AI Project Suggestions](https://claude.ai/share/ac685a0b-7423-4df4-a592-ba7ea9693595)
+- [Refactor Config](https://claude.ai/share/7bb71e52-3a55-435f-a236-95dd8c8f89fb)
+- [Cache & Parallel Hashing](https://claude.ai/share/79108519-e70b-4de7-9118-3056412ab1c8)
+- [Incremental Backup Deletion Problem](https://claude.ai/share/aaffffca-450c-4ecc-9cd6-152597d87497)
+- [Architecture Documentation](https://claude.ai/share/273d9edb-49d2-4992-999f-2f6152a4357f)
+- [Powershell Commands](https://netwrix.com/en/resources/blog/powershell-commands-cheat-sheet/)
+- [The slides from 'System automation & scripting'](https://bamaflexweb.ehb.be/BMFUIDetailxOLOD.aspx?a=166508&b=5&c=1)
+- [HMACSHA256](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.hmacsha256?view=net-10.0)
+- [Example HMACSHA256](https://asecuritysite.com/powershell/enc06)
+- [Scheduled Tasks](https://www.pdq.com/blog/scheduled-tasks-in-powershell/)
+- [Backup Video](https://youtu.be/aYGdEDZHo60?si=ogV4PERLTwCUqMDt)
+- [Backups Explanation](https://www.acronis.com/en/blog/posts/incremental-differential-backups/)
+- [Powershell Documentation](https://learn.microsoft.com/en-us/powershell/)
+- [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-7.5)
+- [Pester Documentation](https://pester.dev/docs/quick-start)
+- [CI Workflow](https://docs.github.com/en/actions/tutorials/build-and-test-code/powershell)
+- 
+---
+
 ## Testing
 
 FileGuardian includes comprehensive test coverage using Pester.
