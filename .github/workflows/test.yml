@@ -6,17 +6,21 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
 permissions:
   contents: read
   checks: write
   pull-requests: write
+
 jobs:
   test:
     runs-on: windows-latest
+
     env:
       FILEGUARDIAN_CONFIG_PATH: ${{ github.workspace }}/config/backup-config.json
       FILEGUARDIAN_LOG_DIRECTORY: ${{ github.workspace }}/logs
       FILEGUARDIAN_REPORT_OUTPUT_PATH: ${{ github.workspace }}/reports
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,21 +32,7 @@ jobs:
           New-Item -Path "$env:FILEGUARDIAN_REPORT_OUTPUT_PATH" -ItemType Directory -Force | Out-Null
           New-Item -Path "${{ github.workspace }}\backups" -ItemType Directory -Force | Out-Null
 
-      - name: test module
-        id: test_module
-        uses: zyborg/pester-tests-report@v1
-        continue-on-error: true
-        with:
-          include_paths: tests
-          exclude_tags: skip_ci
-          report_name: module_tests
-          report_title: Module Tests
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          skip_check_run: true
-
-      - name: dump test results (action)
+      - name: Run Pester and generate summary
         shell: pwsh
         run: |
-          Write-Host 'Action - Total Executed...:  ${{ steps.test_module.outputs.total_count }}'
-          Write-Host 'Action - Passed.....:  ${{ steps.test_module.outputs.passed_count }}'
-          Write-Host 'Action - Failed.....:  ${{ steps.test_module.outputs.failed_count }}'
+          ./build/pester-summary.ps1
