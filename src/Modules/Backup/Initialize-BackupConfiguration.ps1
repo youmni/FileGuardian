@@ -58,7 +58,8 @@ function Initialize-BackupConfiguration {
     try {
         $config = if ($ConfigPath) {
             Read-Config -ConfigPath $ConfigPath
-        } else {
+        }
+        else {
             Read-Config -ErrorAction SilentlyContinue
         }
         if ($config) {
@@ -113,19 +114,26 @@ function Initialize-BackupConfiguration {
     if (-not $ReportFormat) {
         $ReportFormat = "JSON"
     }
-    
-    # Use config for ReportOutputPath if not specified
-    if (-not $ReportOutputPath -and $config -and $config.GlobalSettings.ReportOutputPath) {
-        $ReportOutputPath = $config.GlobalSettings.ReportOutputPath
-        Write-Verbose "Using ReportOutputPath from config: $ReportOutputPath"
+
+    # Use config for ReportOutputPath if not explicitly specified
+    if (-not $BoundParameters.ContainsKey('ReportOutputPath')) {
+        if ($config -and $config.GlobalSettings.ReportOutputPath) {
+            $ReportOutputPath = $config.GlobalSettings.ReportOutputPath
+            Write-Verbose "Using ReportOutputPath from config: $ReportOutputPath"
+        }
+    }
+
+    if (-not $ReportOutputPath) {
+        Write-Log -Message "ReportOutputPath not specified and not found in config" -Level Error
+        throw "ReportOutputPath is required. Specify it as a parameter or in the config file."
     }
     
     return [PSCustomObject]@{
-        DestinationPath = $DestinationPath
-        Compress = $Compress
-        ExcludePatterns = $ExcludePatterns
-        ReportFormat = $ReportFormat
+        DestinationPath  = $DestinationPath
+        Compress         = $Compress
+        ExcludePatterns  = $ExcludePatterns
+        ReportFormat     = $ReportFormat
         ReportOutputPath = $ReportOutputPath
-        Config = $config
+        Config           = $config
     }
 }
