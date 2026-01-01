@@ -137,10 +137,11 @@ Comprehensive guides are available in the `docs/` directory:
 - [Backup Video](https://youtu.be/aYGdEDZHo60?si=ogV4PERLTwCUqMDt)
 - [Backups Explanation](https://www.acronis.com/en/blog/posts/incremental-differential-backups/)
 - [Powershell Documentation](https://learn.microsoft.com/en-us/powershell/)
-- [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-7.5)
+- [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-5.1)
 - [Pester Documentation](https://pester.dev/docs/quick-start)
 - [CI Workflow](https://chatgpt.com/share/6955b20c-0c14-8007-8ec1-9b7525d9f1de)
 - [Trigger task on event](https://stackoverflow.com/questions/57552869/register-scheduled-task-with-new-scheduledtasktrigger-to-trigger-on-event-id)
+- [Splatting](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_splatting?view=powershell-5.1)
 ---
 
 
