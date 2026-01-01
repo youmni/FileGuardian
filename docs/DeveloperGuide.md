@@ -516,6 +516,10 @@ For each enabled backup in config, creates **TWO tasks**:
 - Automatically removes logs older than 90 days
 - Runs on each `Write-Log` call (low overhead)
 
+> **Note**  
+> If no log directory is specified, the default locations will be used:  
+> - `%ProgramData%\FileGuardian\logs`  
+> - `%LOCALAPPDATA%\FileGuardian\logs`
 ---
 
 ## Data Flow & State Management

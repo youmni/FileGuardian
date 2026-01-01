@@ -142,6 +142,10 @@ Located in `config\backup-config.json`:
   }
 }
 ```
+> **Note**  
+> If no log directory is specified, the default locations will be used:  
+> - `%ProgramData%\FileGuardian\logs`  
+> - `%LOCALAPPDATA%\FileGuardian\logs`
 
 ### Exclusion Patterns
 
