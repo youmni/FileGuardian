@@ -45,6 +45,8 @@ FileGuardian/
 │
 ├── config/
 │   └── backup-config.json                # Configuration file (example)
+├── build/
+│   └── pester-summary.ps1                # For pester output in CI 
 │
 ├── docs/
 │   ├── UserGuide.md                      # End-user documentation
