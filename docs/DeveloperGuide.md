@@ -20,8 +20,8 @@
 |-----------|-----------|---------|---------|
 | **Runtime** | PowerShell | 5.1+ | Cross-compatible scripting environment |
 | **Module System** | PowerShell Module Manifest | .psd1 / .psm1 | Modular architecture |
-| **Scheduler** | Windows Task Scheduler | Win10/Server 2016+ | Automated backup execution |
-| **Testing** | Pester | 5.0+ | Unit and integration testing |
+| **Scheduler** | Windows Task Scheduler | Win11 | Automated backup execution |
+| **Testing** | Pester | 5.0+ | Unit testing |
 | **CI/CD** | GitHub Actions | N/A | Automated testing pipeline |
 
 ### Core Principles

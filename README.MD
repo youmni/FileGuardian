@@ -31,7 +31,6 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
   - Integration with Windows Task Scheduler
   - Event-driven retention cleanup (executes automatically after successful backups)
   - Flexible scheduling: daily, weekly, hourly frequencies
-  - Runs as SYSTEM account for reliable background execution
 
 - **Comprehensive Reporting**  
   - Multiple output formats: JSON, HTML or CSV
@@ -141,6 +140,7 @@ Comprehensive guides are available in the `docs/` directory:
 - [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-7.5)
 - [Pester Documentation](https://pester.dev/docs/quick-start)
 - [CI Workflow](https://chatgpt.com/share/6955b20c-0c14-8007-8ec1-9b7525d9f1de)
+- [Trigger task on event](https://stackoverflow.com/questions/57552869/register-scheduled-task-with-new-scheduledtasktrigger-to-trigger-on-event-id)
 ---
 
 
@@ -150,7 +150,7 @@ Comprehensive guides are available in the `docs/` directory:
 
 I have noticed that when I sign a report, I currently only store a hash. If someone were to modify the report and then include the new hash in the signature, this would go unnoticed.
 
-To prevent this, I would like to use an HMAC, specifically HMAC‑SHA256. The hash should be calculated over the report content including the metadata and the report number bytes and the HMAC should be stored together with the signature.
+To prevent this, I would like to use an HMAC, specifically HMAC‑SHA256. The hash should be calculated over the report content including the metadata and the report number bytes and the HMAC should be stored together with the signature
 
 I would like you to implement this approach for the reports. Additionally, I want this to work with the Credential Manager, so that the secret key used for the HMAC is stored securely rather than hard‑coded or stored in configuration files.
 
@@ -164,8 +164,13 @@ Based on my main orchestrator, Invoke-FileGuardian, create a comprehensive user 
 
 How to implement a restore process for full and incremental backups. Focus on explaining the overall workflow.
 
+-----------------------------
+
+Refactor the tests to dot-source dependencies instead of importing modules for .ps1 files.
+
+-----------------------------
 ### Generative AI disclosure
-AI tools were used to assist with this project, as referenced in the links and VS Code prompts above. All content produced with AI was carefully reviewed to ensure full understanding and accuracy. Most of the comment-based help, was initially generated with the help of auto-completion, but every section was thoroughly read and verified.
+AI tools were used to assist with this project, as referenced in the links and VS Code prompts above. All content produced with AI was carefully reviewed to ensure full understanding and accuracy. Most of the comment-based help, was initially generated with the help of auto-completion, but every section was thoroughly read and verified. While pushing in VS Code, the 'Generate Commit Message' feature was used.
 
 
 ## Testing

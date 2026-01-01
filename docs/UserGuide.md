@@ -59,6 +59,7 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 ### Prerequisites
 
 - Windows PowerShell 5.1 or later
+- Windows Credential Manager
 - Administrator privileges (for scheduled tasks)
 - Sufficient disk space for backups
 
@@ -720,7 +721,7 @@ All reports include:
 
 ### Digital Signatures
 
-Every report is automatically signed with SHA256 hash:
+Every report is automatically signed with HMACSHA256 hash:
 - Prevents tampering
 - Ensures authenticity
 - Signature stored in `.sig` file
@@ -805,4 +806,4 @@ Get-ChildItem "D:\Backups" -Filter "*.zip" |
 For issues, feature requests or questions:
 - Check logs in configured `LogDirectory`
 - Review reports for detailed backup information
-- Check `README.md` for author(s)
+- Check `README.md` for author (check contact possibilities)
