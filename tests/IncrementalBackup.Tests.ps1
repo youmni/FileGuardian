@@ -7,7 +7,6 @@ BeforeAll {
     # Import Logging module first (dependency)
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Dot-source all Backup module .ps1 files (helpers and public)
     Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
     }
@@ -50,7 +49,6 @@ Describe "Invoke-IncrementalBackup" {
         $script:TestDestPath = Join-Path $TestDrive "TestBackup"
         
         New-TestData -Path $script:TestSourcePath
-        # Ensure integrity helper is loaded for each test run
         . (Join-Path $ProjectRoot "src\Modules\Integrity\Get-FileIntegrityHash.ps1")
         
         if (Test-Path $script:TestDestPath) {

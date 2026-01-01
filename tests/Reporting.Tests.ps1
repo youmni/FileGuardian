@@ -3,7 +3,6 @@ BeforeAll {
     $script:ReportingModulePath = Join-Path $ProjectRoot "src\Modules\Reporting"
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
-    # Dot-source required module scripts for tests (avoid Import-Module)
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
     . (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1")
     . (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1")

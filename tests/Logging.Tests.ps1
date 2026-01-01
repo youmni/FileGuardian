@@ -46,8 +46,6 @@ Describe "Write-Log" {
     
     Context "Log File Creation" {
         It "Should create log directory if it doesn't exist" {
-            # Note: Since Write-Log creates logs in its relative path, we'll test
-            # that the actual log directory gets created
             $actualLogDir = Join-Path $ProjectRoot "logs"
             
             Write-Log -Message "Test log message"
@@ -55,11 +53,9 @@ Describe "Write-Log" {
             Test-Path $actualLogDir | Should -Be $true
         }
         
-        # Removed failing log file content tests as requested
     }
     
     Context "Log Message Format" {
-        # Removed failing log file content tests as requested
     }
     
     Context "Error Handling" {
@@ -68,22 +64,12 @@ Describe "Write-Log" {
         }
         
         It "Should continue logging even if one write fails" {
-            # This is hard to test without mocking, but we can verify
-            # that logging continues to work
             Write-Log -Message "Before potential error"
             Write-Log -Message "After potential error"
             
             # If we got here without throwing, logging is working
             $true | Should -Be $true
         }
-    }
-    
-    Context "Concurrent Logging" {
-        # Removed failing log file content tests as requested
-    }
-    
-    Context "Log File Management" {
-        # Removed failing log file content tests as requested
     }
     
     Context "Integration with Other Modules" {
@@ -97,8 +83,6 @@ Describe "Write-Log" {
             
             { & $scriptBlock -LoggingModulePath $script:LoggingModulePath } | Should -Not -Throw
         }
-        
-        # Removed failing log file content tests as requested
     }
 }
 
