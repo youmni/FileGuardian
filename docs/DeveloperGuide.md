@@ -9,13 +9,6 @@
 3. [Architecture Design](#architecture-design)
 4. [Module Breakdown](#module-breakdown)
 5. [Data Flow & State Management](#data-flow--state-management)
-6. [Configuration System](#configuration-system)
-7. [Scheduling Architecture](#scheduling-architecture)
-8. [Integrity Verification System](#integrity-verification-system)
-9. [Testing Infrastructure](#testing-infrastructure)
-10. [Deployment & Installation](#deployment--installation)
-11. [Extension Points](#extension-points)
-12. [Troubleshooting Guide](#troubleshooting-guide)
 
 ---
 
@@ -26,11 +19,9 @@
 | Component | Technology | Version | Purpose |
 |-----------|-----------|---------|---------|
 | **Runtime** | PowerShell | 5.1+ | Cross-compatible scripting environment |
-| **Module System** | PowerShell Module Manifest | .psd1 / .psm1 | Modular architecture with nested modules |
-| **Cryptography** | .NET SHA256 | Framework 4.x+ | File integrity verification |
-| **Compression** | .NET Compression | Framework 4.x+ | ZIP archive creation |
-| **Scheduler** | Windows Task Scheduler | Win10/Server 2016+ | Automated backup execution |
-| **Testing** | Pester | 5.0+ | Unit and integration testing |
+| **Module System** | PowerShell Module Manifest | .psd1 / .psm1 | Modular architecture |
+| **Scheduler** | Windows Task Scheduler | Win11 | Automated backup execution |
+| **Testing** | Pester | 5.0+ | Unit testing |
 | **CI/CD** | GitHub Actions | N/A | Automated testing pipeline |
 
 ### Core Principles
@@ -53,12 +44,13 @@ FileGuardian/
 │       └── test.yml                      # CI/CD pipeline configuration
 │
 ├── config/
-│   └── backup-config.json                # Central configuration file
+│   └── backup-config.json                # Configuration file (example)
+├── build/
+│   └── pester-summary.ps1                # For pester output in CI 
 │
 ├── docs/
 │   ├── UserGuide.md                      # End-user documentation
-│   ├── DeveloperGuide.md                 # Developer documentation
-│   └── DesignDocument.md                 # Architecture & design decisions
+│   └── DeveloperGuide.md                 # Developer documentation & Architecture
 │
 ├── src/
 │   ├── FileGuardian.psd1                 # PowerShell module manifest
@@ -88,6 +80,7 @@ FileGuardian/
 │       │   ├── Write-JsonReport.ps1
 │       │   ├── Write-HtmlReport.ps1
 │       │   ├── Write-CsvReport.ps1
+│       │   ├── Get-ReportSigningKey.ps1
 │       │   ├── Protect-Report.ps1
 │       │   └── Confirm-ReportSignature.ps1
 │       │
@@ -123,10 +116,6 @@ FileGuardian/
 │   ├── Restore.Tests.ps1
 │   └── RetentionCleanup.Tests.ps1
 │
-├── logs/                                 # Runtime logs (auto-created)
-├── reports/                              # Generated reports (auto-created)
-├── backups/                              # Default backup destination (configurable)
-│
 ├── .gitignore
 └── README.md
 ```
@@ -142,12 +131,11 @@ FileGuardian/
 
 ## Architecture Design
 
-### Design Patterns
+### Design
 
-1. **Command Pattern**: `Invoke-FileGuardian -Action` routes to appropriate handlers
-2. **Strategy Pattern**: Backup types (Full/Incremental) implement common interface
-3. **Facade Pattern**: Module wrapper functions hide internal complexity
-4. **Observer Pattern**: Event-driven cleanup tasks triggered by backup completion
+1. **Procedural dispatch.**: `Invoke-FileGuardian -Action` routes to appropriate handlers
+2. **Hiding internal details**: Main orchistrator hides internal complexity
+3. **Event-driven cleanup**: Event-driven cleanup tasks triggered by backup completion when scheduled
 
 ---
 
@@ -184,15 +172,10 @@ FileGuardian/
 1. Scan source files (with exclusion filtering)
 2. Copy all files to destination (temp dir if compression enabled)
 3. Save `.backup-metadata.json` with timestamp, type, file count
-4. Compress to ZIP (optional, via `Compress-Backup`)
+4. Compress to ZIP (optional)
 5. Save integrity state (`Invoke-IntegrityStateSave`)
 6. Verify previous backups (`Test-PreviousBackups`)
 7. Generate report (`New-BackupReport`)
-
-**Output**: PSCustomObject with:
-- `Type`, `BackupName`, `Timestamp`, `FilesBackedUp`, `TotalSizeMB`
-- `Compressed`, `CompressedSizeMB`, `CompressionRatio` (if compressed)
-- `IntegrityStateSaved`, `ReportPath`, `ReportSigned`
 
 #### 2.2 Invoke-IncrementalBackup.ps1
 
@@ -212,24 +195,9 @@ FileGuardian/
 
 **Fallback Behavior**: If no `latest.json` exists → delegates to `Invoke-FullBackup`
 
-**Output**: Same structure as FullBackup + `FilesChanged`, `FilesNew`, `FilesDeleted`
-
 #### 2.3 Compress-Backup.ps1
 
 **Purpose**: Create ZIP archive from backup folder
-
-**Parameters**:
-- `-SourcePath`: Directory to compress
-- `-DestinationPath`: ZIP file path
-- `-CompressionLevel`: Optimal | Fastest | NoCompression
-- `-RemoveSource`: Delete source after successful compression
-
-**Algorithm**:
-```powershell
-Compress-Archive -Path "$SourcePath\*" -DestinationPath $DestinationPath -Force
-```
-
-**Safety**: Only removes source if compression succeeds (`$result.Success -eq $true`)
 
 #### 2.4 Save-BackupMetadata.ps1
 
@@ -260,30 +228,11 @@ Compress-Archive -Path "$SourcePath\*" -DestinationPath $DestinationPath -Force
 **Purpose**: Calculate SHA256 hashes for files with parallel processing
 
 **Key Features**:
-1. **Parallel Processing**: Uses runspace pool (max = CPU cores)
+1. **Parallel Processing**: Uses runspace pool
 2. **Smart Caching**: Reuses hashes for unchanged files (based on LastWriteTime + Size)
 3. **Consistent Paths**: Normalizes relative paths via `Get-ConsistentRelativePath`
 
-**Parameters**:
-- `-Path`: File or directory
-- `-Recurse`: Process subdirectories
-- `-StateDirectory`: Load `latest.json` for cache lookup
-- `-Algorithm`: SHA256 | SHA1 | MD5
-- `-MaxParallelJobs`: Default = CPU cores
-
-**Output**: Array of PSCustomObject:
-```powershell
-@{
-    Path = "C:\Source\file.txt"
-    RelativePath = "file.txt"
-    Hash = "A1B2C3..."
-    Algorithm = "SHA256"
-    Size = 1024
-    LastWriteTime = "2025-12-30 12:00:00.000"
-}
-```
-
-**Performance**: ~10x faster than sequential hashing for large file sets
+**Performance**: A lot faster than sequential hashing for large file sets
 
 #### 3.2 Save-IntegrityState.ps1
 
@@ -305,6 +254,7 @@ latest.json            latest.json (new state)
   "TotalSize": 1048576,
   "Files": [
     {
+      "Path": "C:\\Source\\file.txt",
       "RelativePath": "file.txt",
       "Hash": "A1B2C3...",
       "Algorithm": "SHA256",
@@ -315,7 +265,7 @@ latest.json            latest.json (new state)
 }
 ```
 
-**Optional**: Saves backup-specific state as `states/BackupName.json`
+**Important**: Saves backup-specific state as `states/[BackupName].json`
 
 #### 3.3 Test-BackupIntegrity.ps1
 
@@ -327,24 +277,6 @@ latest.json            latest.json (new state)
 3. Calculate current hashes for all files in backup
 4. Compare with expected hashes from state
 5. Categorize results: Verified, Corrupted, Missing, Extra
-
-**Output**:
-```powershell
-@{
-    BackupPath = "D:\Backups\..."
-    IsIntact = $true
-    Verified = @(...)      // Files with matching hashes
-    Corrupted = @(...)     // Files with mismatched hashes
-    Missing = @(...)       // Files in state but not in backup
-    Extra = @(...)         // Files in backup but not in state
-    Summary = @{
-        VerifiedCount = 42
-        CorruptedCount = 0
-        MissingCount = 0
-        ExtraCount = 0
-    }
-}
-```
 
 **Cleanup**: Removes temp extracted folder for ZIPs
 
@@ -363,27 +295,13 @@ latest.json            latest.json (new state)
 - **BackupDetails**: Name, type, timestamp, duration, status
 - **Paths**: Source, destination
 - **Statistics**: Files backed up, sizes, compression ratio
-- **Changes**: Modified/new/deleted files (incremental only)
+- **Changes**: Modified/new/deleted files
 - **Integrity**: State saved, previous backups verified, corrupted backups
 - **SystemInfo**: Computer name, user, OS version, PowerShell version
 
-**HTML Report Features**:
-- Modern gradient design with CSS styling
-- Responsive layout
-- Color-coded status indicators
-- Corruption warnings highlighted
-
-**Path Logic**:
-```powershell
-# If ReportPath is directory or not specified
-if ((Test-Path $ReportPath -PathType Container) -or (-not [Path]::HasExtension($ReportPath))) {
-    # Auto-generate filename: BackupName_YYYYMMDD_HHMMSS_report.{ext}
-}
-```
-
 #### 4.2 Protect-Report.ps1
 
-**Purpose**: Digitally sign report with SHA256 hash
+**Purpose**: Digitally sign report with HMAC-SHA256
 
 **Signature File**: `ReportPath.sig` (JSON)
 
@@ -406,11 +324,13 @@ if ((Test-Path $ReportPath -PathType Container) -or (-not [Path]::HasExtension($
 
 **Verification**:
 1. Load `.sig` file
-2. Calculate current hash of report
+2. Calculate HMAC-SHA256 from report and metadata with same secret key
 3. Compare with expected hash from signature
 4. Return validation result
 
-**Output**: PSCustomObject with `IsValid`, `ExpectedHash`, `ActualHash`
+#### 4.4 Get-ReportSigningKey.ps1
+
+**Purpose**:  Retrieves the report signing key from Windows Credential Manager.
 
 ---
 
@@ -430,26 +350,6 @@ if ((Test-Path $ReportPath -PathType Container) -or (-not [Path]::HasExtension($
    - Normalize BackupType to canonical values (Full/Incremental)
 3. Return array of normalized backup objects
 
-**Output**:
-```powershell
-@(
-    @{
-        Path = "D:\Backups\Full_20251225_120000"
-        IsZip = $false
-        ExtractPath = $null
-        Metadata = @{ BackupType = "Full"; Timestamp = "20251225_120000"; ... }
-        Timestamp = [DateTime] "2025-12-25 12:00:00"
-    },
-    @{
-        Path = "D:\Backups\Incr_20251226_120000.zip"
-        IsZip = $true
-        ExtractPath = "C:\Temp\..."
-        Metadata = @{ BackupType = "Incremental"; ... }
-        Timestamp = [DateTime] "2025-12-26 12:00:00"
-    }
-)
-```
-
 #### 5.2 Invoke-Restore.ps1
 
 **Purpose**: Apply backup chain (full + incrementals) to restore directory
@@ -464,10 +364,6 @@ if ((Test-Path $ReportPath -PathType Container) -or (-not [Path]::HasExtension($
 3. Cleanup extracted temp folders (for ZIPs)
 4. Remove .backup-metadata.json files from restore output
 ```
-
-**Safety Checks**:
-- Validates restore directory is writable
-- Ensures deleted paths stay within restore directory (no path traversal)
 
 **Example Chain**:
 ```
@@ -488,11 +384,6 @@ Full (2025-12-25) → Incr (2025-12-26) → Incr (2025-12-27)
 
 **Purpose**: Delete backups older than retention period
 
-**Parameters**:
-- `-BackupDirectory`: Directory containing backups
-- `-RetentionDays`: Age threshold (e.g., 30)
-- `-BackupName`: Optional filter pattern
-
 **Safety Logic**:
 ```powershell
 # Never delete ALL backups (protects against clock skew)
@@ -501,16 +392,6 @@ if ($backupsToDelete.Count -eq $allBackups.Count -and $allBackups.Count -gt 0) {
     return
 }
 ```
-
-**Operations**:
-1. Find all backup folders/ZIPs in directory
-2. Filter by BackupName pattern (if provided)
-3. Check CreationTime against cutoff date
-4. Delete old backups
-5. Clean orphaned state files (states without corresponding backups)
-6. **Never** delete `latest.json` or `prev.json`
-
-**Output**: PSCustomObject with `DeletedCount`, `FreedSpaceMB`, `CutoffDate`
 
 #### 6.2 Invoke-BackupCleanup.ps1
 
@@ -540,37 +421,12 @@ For each enabled backup in config, creates **TWO tasks**:
 **1. Backup Task** (`FileGuardian_BackupName`)
 - **Action**: PowerShell command that imports module and calls `Invoke-FileGuardian`
 - **Trigger**: Based on schedule (Daily/Weekly/Hourly)
-- **Principal**: SYSTEM account (runs without user login)
-- **Settings**: Start when available, wake to run, allow on battery
-
-**Command Structure**:
-```powershell
-$command = "Import-Module '$modulePath'; Invoke-FileGuardian -Action Backup -SourcePath '...' -BackupName '...' ..."
-$argumentString = "-NoProfile -ExecutionPolicy Bypass -Command `"$command`""
-```
+- **Settings**: Start when available, allow on battery
 
 **2. Cleanup Task** (`FileGuardian_Cleanup_BackupName`)
 - **Action**: PowerShell command calling `Invoke-FileGuardian -Action Cleanup`
-- **Trigger**: Event-based (EventID 102 = backup task completed)
+- **Trigger**: Event-based
 - **Event Filter**: Only triggers when backup task finishes successfully
-
-**Event Subscription**:
-```xml
-<QueryList>
-  <Query Id="0" Path="Microsoft-Windows-TaskScheduler/Operational">
-    <Select>
-      *[System[(EventID=102)]] and 
-      *[EventData[Data[@Name='TaskName']='\FileGuardian_BackupName']]
-    </Select>
-  </Query>
-</QueryList>
-```
-
-**Removal**:
-```powershell
-Invoke-FileGuardian -Action Schedule -Remove  # Remove all tasks
-Invoke-FileGuardian -Action Schedule -BackupName "..." -Remove  # Remove specific
-```
 
 ---
 
@@ -662,8 +518,10 @@ Invoke-FileGuardian -Action Schedule -BackupName "..." -Remove  # Remove specifi
 - Automatically removes logs older than 90 days
 - Runs on each `Write-Log` call (low overhead)
 
-**Thread Safety**: Uses `Out-File -Append` for concurrent write safety
-
+> **Note**  
+> If no log directory is specified, the default locations will be used:  
+> - `%ProgramData%\FileGuardian\logs`  
+> - `%LOCALAPPDATA%\FileGuardian\logs`
 ---
 
 ## Data Flow & State Management
@@ -718,4 +576,3 @@ Second Incremental:
 **Usage**:
 - Restore operations use metadata to identify backup type and chain
 - Integrity verification uses metadata to validate backup contents
-- Metadata excluded from hash calculations (self-referential)

@@ -46,9 +46,6 @@
             # Tags applied to this module
             Tags = @('Backup', 'Integrity', 'Hash', 'Verification', 'FileGuardian', 'Automation', 'Windows', 'Schedule')
 
-            # A URL to the license for this module
-            # LicenseUri = ''
-
             # A URL to the main website for this project
             # ProjectUri = ''
 

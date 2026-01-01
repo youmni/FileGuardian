@@ -3,10 +3,8 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
     
-    # Import Logging module first (dependency)
-        . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Dot-source all Integrity module scripts (helpers and public)
     Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
     }

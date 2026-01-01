@@ -38,10 +38,7 @@ function Register-BackupSchedule {
         [string]$BackupName,
         
         [Parameter()]
-        [switch]$Remove,
-
-        [Parameter()]
-        [switch]$RunAsCurrentUser
+        [switch]$Remove
     )
     
     begin {
@@ -53,21 +50,19 @@ function Register-BackupSchedule {
             throw "This operation requires Administrator privileges. Please run as Administrator."
         }
         
-        # Determine config path
-        if (-not $ConfigPath) {
-            $moduleRoot = Split-Path -Parent $PSScriptRoot
-            $projectRoot = Split-Path -Parent (Split-Path -Parent $moduleRoot)
-            $ConfigPath = Join-Path $projectRoot "config\backup-config.json"
+        try {
+            if ($ConfigPath) {
+                $config = Read-Config -ConfigPath $ConfigPath
+            }
+            else {
+                $config = Read-Config
+            }
         }
-        
-        # Read configuration
-        if (-not (Test-Path $ConfigPath)) {
-            throw "Configuration file not found: $ConfigPath"
+        catch {
+            throw "Failed to load configuration via Read-Config: $_"
         }
-        
-        $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-        
-        if (-not $config.ScheduledBackups) {
+
+        if (-not $config -or -not $config.ScheduledBackups) {
             Write-Warning "No scheduled backups found in configuration."
             return
         }
@@ -188,9 +183,9 @@ function Register-BackupSchedule {
                 }
             }
             
-                $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-                $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType S4U -RunLevel Highest
-                Write-Log -Message "Registering tasks to run as user: $currentUser (S4U)" -Level Info
+            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType S4U -RunLevel Highest
+            Write-Log -Message "Registering tasks to run as user: $currentUser (S4U)" -Level Info
 
             $settingsParams = @{
                 AllowStartIfOnBatteries = $true

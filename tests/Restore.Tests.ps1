@@ -3,10 +3,8 @@ BeforeAll {
     $script:RestoreModulePath = Join-Path $ProjectRoot "src\Modules\Restore"
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
 
-    # Import Logging module dependency
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Dot-source all Restore module helpers/public functions
     Get-ChildItem -Path $script:RestoreModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
     }
@@ -102,7 +100,6 @@ Describe "Restore Module" {
             $info.ExtractPath | Should -Not -BeNullOrEmpty
             $info.Metadata.BackupType | Should -Be 'Incremental'
             Test-Path $info.ExtractPath | Should -BeTrue
-            # cleanup extract path (function under test may also remove later)
             Remove-Item -Path $info.ExtractPath -Recurse -Force
         }
     }

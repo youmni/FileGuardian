@@ -5,14 +5,13 @@ BeforeAll {
     $script:ReportingModulePath = Join-Path $ProjectRoot "src\Modules\Reporting"
     $script:IntegrityModulePath = Join-Path $ProjectRoot "src\Modules\Integrity"
     
-    # Import Logging module first (dependency)
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
     Get-ChildItem -Path $script:BackupModulePath -Filter '*.ps1' | ForEach-Object {
         . $_.FullName
     }
     . (Join-Path $ProjectRoot "src\Modules\Config\Read-Config.ps1")
-    # Dot-source reporting and integrity helpers used by backup workflow
+    
     Get-ChildItem -Path $script:ReportingModulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
     Get-ChildItem -Path $script:IntegrityModulePath -Filter '*.ps1' | ForEach-Object { . $_.FullName }
     

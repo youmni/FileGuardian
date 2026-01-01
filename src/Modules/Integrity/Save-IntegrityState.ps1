@@ -18,7 +18,7 @@ function Save-IntegrityState {
         Optional backup name to create a backup-specific state file
     
     .PARAMETER ExcludePatterns
-        Array of file patterns to exclude from the integrity state (such as "*.tmp", "*.log", "node_modules/**").
+        Array of file patterns to exclude from the integrity state (such as "*.tmp", "*.log", "node_modules/**")
         
     .EXAMPLE
         Save-IntegrityState -SourcePath "C:\Data"
@@ -91,11 +91,10 @@ function Save-IntegrityState {
             foreach ($h in $rawHashes) {
                 if ($null -eq $h) { continue }
 
-                # Normalise RelativePath (no leading slashes)
+                # Normalise RelativePath
                 $rel = $h.RelativePath
                 if ($rel) { $rel = $rel.TrimStart('\','/') }
 
-                # Ensure Size exists (support 'Size' or 'Length')
                 if ($h.PSObject.Properties.Name -contains 'Size') {
                     $size = [long]$h.Size
                 }

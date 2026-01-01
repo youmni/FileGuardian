@@ -18,6 +18,9 @@ function Invoke-IntegrityStateSave {
     
     .PARAMETER Compress
         Whether the backup was compressed.
+        
+    .PARAMETER ExcludePatterns
+        Array of file patterns to exclude from backup (e.g., "*.tmp", "*.log"). If not specified, uses config file.
     
     .OUTPUTS
         Boolean indicating success or failure.

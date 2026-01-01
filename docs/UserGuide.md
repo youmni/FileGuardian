@@ -6,47 +6,51 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Quick Start](#quick-start)
-2. [Configuration](#configuration)
-  - [Configuration Hierarchy](#configuration-hierarchy)
-  - [Global Settings](#global-settings)
-  - [Credential Storage](#credential-storage)
-  - [Exclusion Patterns](#exclusion-patterns)
-3. [Manual Operations](#manual-operations)
-  - [Backup Operations](#backup-operations)
-    - [Full Backup](#1-full-backup)
-    - [Incremental Backup](#2-incremental-backup)
-  - [Verify Operations](#verify-operations)
-  - [Report Operations](#report-operations)
-  - [Restore Operations](#restore-operations)
-  - [Cleanup Operations](#cleanup-operations)
-4. [Scheduled Backups](#scheduled-backups)
-  - [Configuration](#configuration-1)
-  - [Configuration Options](#configuration-options)
-  - [Schedule Frequencies](#schedule-frequencies)
-    - [Daily Backups](#daily-backups)
-    - [Weekly Backups](#weekly-backups)
-    - [Hourly Backups](#hourly-backups)
-  - [Registering Scheduled Tasks](#registering-scheduled-tasks)
-  - [Important: Scheduling Best Practices](#important-scheduling-best-practices)
-  - [Task Behavior](#task-behavior)
-  - [Automatic Retention Cleanup](#automatic-retention-cleanup)
-5. [Reports](#reports)
-  - [Report Formats](#report-formats)
-    - [HTML Report (Recommended)](#html-report-recommended)
-    - [JSON Report](#json-report)
-    - [CSV Report](#csv-report)
-  - [Report Contents](#report-contents)
-  - [Digital Signatures](#digital-signatures)
-6. [Best Practices](#best-practices)
-  - [Backup Strategy](#backup-strategy)
-  - [Directory Organization](#directory-organization)
-  - [Retention Management](#retention-management)
-  - [Security](#security)
-  - [Performance](#performance)
-7. [Support](#support)
+- [FileGuardian - User Guide](#fileguardian---user-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Quick Start](#quick-start)
+  - [Configuration](#configuration)
+    - [Configuration Hierarchy](#configuration-hierarchy)
+    - [Credential Storage](#credential-storage)
+    - [Global Settings](#global-settings)
+    - [Exclusion Patterns](#exclusion-patterns)
+  - [Manual Operations](#manual-operations)
+    - [Backup Operations](#backup-operations)
+      - [1. Full Backup](#1-full-backup)
+      - [2. Incremental Backup](#2-incremental-backup)
+    - [Verify Operations](#verify-operations)
+    - [Report Operations](#report-operations)
+    - [Restore Operations](#restore-operations)
+    - [Cleanup Operations](#cleanup-operations)
+  - [Scheduled Backups](#scheduled-backups)
+    - [Configuration](#configuration-1)
+    - [Configuration Options](#configuration-options)
+    - [Schedule Frequencies](#schedule-frequencies)
+      - [Daily Backups](#daily-backups)
+      - [Weekly Backups](#weekly-backups)
+      - [Hourly Backups](#hourly-backups)
+    - [Registering Scheduled Tasks](#registering-scheduled-tasks)
+    - [Important: Scheduling Best Practices](#important-scheduling-best-practices)
+    - [Task Behavior](#task-behavior)
+  - [Configuration](#configuration-2)
+    - [Configuration Hierarchy](#configuration-hierarchy-1)
+    - [Global Settings](#global-settings-1)
+    - [Exclusion Patterns](#exclusion-patterns-1)
+  - [Reports](#reports)
+    - [Report Formats](#report-formats)
+      - [HTML Report (Recommended)](#html-report-recommended)
+      - [JSON Report](#json-report)
+      - [CSV Report](#csv-report)
+    - [Report Contents](#report-contents)
+    - [Digital Signatures](#digital-signatures)
+  - [Best Practices](#best-practices)
+    - [Backup Strategy](#backup-strategy)
+    - [Security](#security)
+    - [Performance](#performance)
+    - [Retention](#retention)
+  - [Support](#support)
 
 ---
 
@@ -55,6 +59,7 @@ Welcome to FileGuardian, your comprehensive backup and integrity monitoring solu
 ### Prerequisites
 
 - Windows PowerShell 5.1 or later
+- Windows Credential Manager
 - Administrator privileges (for scheduled tasks)
 - Sufficient disk space for backups
 
@@ -93,7 +98,7 @@ Invoke-FileGuardian @backupParams
 
 FileGuardian uses a **3-level priority system** for settings:
 
-1. **Environment variable** `FILEGUARDIAN_CONFIG` (highest priority) — set this to a custom config file path to override defaults.
+1. **Environment variable or explicitly given config path** `FILEGUARDIAN_CONFIG_PATH` (highest priority) — set this to a custom config file path to override defaults. You can also give a config path to FileGuardian.
 2. **Command-line parameters** — explicit values passed to `Invoke-FileGuardian`.
 3. **Hardcoded defaults** (lowest priority) — built-in fallbacks.
 
@@ -137,6 +142,10 @@ Located in `config\backup-config.json`:
   }
 }
 ```
+> **Note**  
+> If no log directory is specified, the default locations will be used:  
+> - `%ProgramData%\FileGuardian\logs`  
+> - `%LOCALAPPDATA%\FileGuardian\logs`
 
 ### Exclusion Patterns
 
@@ -360,7 +369,7 @@ Invoke-FileGuardian @r
 | `-ReportPath` | Yes | Path to the report file |
 
 **What Gets Verified:**
-- Report signature (SHA256 hash)
+- Report signature (HMACSHA256 hash)
 - Report hasn't been tampered with
 - Signature file exists
 
@@ -383,24 +392,14 @@ Report signature is VALID
 
 ### Restore Operations
 
-Restore files from a backup (folder or compressed ZIP). Use the `Restore` action and provide the `-BackupPath` and `-DestinationPath`.
+Restore files from a backup. Use the `Restore` action and provide the `-BackupDirectory` and `-RestoreDirectory`.
 
-**Restore Uncompressed Backup (folder):**
+**Restore Backups:**
 ```powershell
 $restore = @{
   Action = 'Restore'
-  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000'
-  DestinationPath = 'C:\Restore\Projects'
-}
-Invoke-FileGuardian @restore
-```
-
-**Restore From ZIP:**
-```powershell
-$restore = @{
-  Action = 'Restore'
-  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000.zip'
-  DestinationPath = 'C:\Restore\Projects'
+  BackupDirectory = "C:\Temp\aklaa\backups"
+  RestoreDirectory = 'C:\Temp\aklaa\restore'
 }
 Invoke-FileGuardian @restore
 ```
@@ -410,8 +409,8 @@ Invoke-FileGuardian @restore
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `-Action` | Yes | Must be `Restore` |
-| `-BackupPath` | Yes | Path to backup folder or ZIP file |
-| `-DestinationPath` | Yes | Where to restore files |
+| `-BackupDirectory` | Yes | Path to backup folder |
+| `-RestoreDirectory` | Yes | Where to restore files and folders |
 
 **What Gets Restored:**
 - Files and directories
@@ -726,7 +725,7 @@ All reports include:
 
 ### Digital Signatures
 
-Every report is automatically signed with SHA256 hash:
+Every report is automatically signed with HMACSHA256 hash:
 - Prevents tampering
 - Ensures authenticity
 - Signature stored in `.sig` file
@@ -811,4 +810,4 @@ Get-ChildItem "D:\Backups" -Filter "*.zip" |
 For issues, feature requests or questions:
 - Check logs in configured `LogDirectory`
 - Review reports for detailed backup information
-- Check `README.md` for author(s)
+- Check `README.md` for author (check contact possibilities)

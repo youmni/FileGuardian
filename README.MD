@@ -8,7 +8,7 @@
 
 FileGuardian is a robust, modular PowerShell-based backup solution designed to automate file backups while ensuring data integrity through SHA256 cryptographic verification. The system helps prevent data loss and undetected file corruption by validating every backup operation and maintaining detailed audit trails through digitally signed reports.
 
-FileGuardian offers flexible backup strategies, automated scheduling via Windows Task Scheduler and comprehensive reporting capabilities—all through a unified command-line interface.
+FileGuardian offers flexible backup strategies, automated scheduling via Windows Task Scheduler and comprehensive reporting capabilities. All through a unified command-line interface.
 
 ---
 
@@ -31,11 +31,10 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
   - Integration with Windows Task Scheduler
   - Event-driven retention cleanup (executes automatically after successful backups)
   - Flexible scheduling: daily, weekly, hourly frequencies
-  - Runs as SYSTEM account for reliable background execution
 
 - **Comprehensive Reporting**  
   - Multiple output formats: JSON, HTML or CSV
-  - Digital signatures (SHA256) for tamper detection
+  - Digital signatures (HMACSHA256) for tamper detection
   - Detailed backup statistics and change summaries
   - Previous backup verification results included in reports
 
@@ -87,6 +86,17 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
    # Set environment variable to absolute path of your config file
    [Environment]::SetEnvironmentVariable('FILEGUARDIAN_CONFIG_PATH', <PATH>, 'User')
    ```
+
+3. **Set credential storage**
+   Install and use the CredentialManager module to securely store the report signing secret:
+
+  ```powershell
+  Install-Module -Name CredentialManager -Scope CurrentUser
+  $bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $secret = [Convert]::ToBase64String($bytes)
+  New-StoredCredential -Target "FileGuardian.ReportSigning" -UserName "FileGuardian" -Password $secret -Persist LocalMachine
+  Get-StoredCredential -Target "FileGuardian.ReportSigning"
+  ```
 ---
 
 ## Documentation
@@ -94,7 +104,8 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
 Comprehensive guides are available in the `docs/` directory:
 
 - **[UserGuide.md](docs/UserGuide.md)** - Complete usage documentation with examples for all operations (Backup, Verify, Report, Restore, Schedule and  Cleanup)
-- **[DeveloperGuide.md](docs/DeveloperGuide.md)** - Architecture overview, module structure, development workflow and contribution guidelines
+- **[DeveloperGuide.md](docs/DeveloperGuide.md)** - System Overview, Project Structure, Architecture Design, Module Breakdown, Data Flow & State Management 
+- **AI Assistance** - Used prompts and Generative AI disclosure (see below)
 
 ---
 
@@ -102,17 +113,72 @@ Comprehensive guides are available in the `docs/` directory:
 
 **Core Technologies:**
 - PowerShell 5.1+
+- Windows Credential Manager
 - Windows Task Scheduler
 - Pester
 
 ---
+
+## Sources
+- [Project Structure](https://chatgpt.com/share/6955997b-37d0-8007-8a27-72da58a47fd7)
+- [MVP Approach](https://chatgpt.com/share/695597dd-da1c-8007-96ac-03d807df2617)
+- [Better Hashing Approach](https://claude.ai/share/e62c59dc-6833-476e-993d-2ee6c99516b4)
+- [Temp Cleanup](https://claude.ai/share/2df9cb6c-f4b6-4e75-95b4-011bac1fa85a)
+- [AI Project Suggestions](https://claude.ai/share/ac685a0b-7423-4df4-a592-ba7ea9693595)
+- [Refactor Config](https://claude.ai/share/7bb71e52-3a55-435f-a236-95dd8c8f89fb)
+- [Cache & Parallel Hashing](https://claude.ai/share/79108519-e70b-4de7-9118-3056412ab1c8)
+- [Incremental Backup Deletion Problem](https://claude.ai/share/aaffffca-450c-4ecc-9cd6-152597d87497)
+- [Architecture Documentation](https://claude.ai/share/273d9edb-49d2-4992-999f-2f6152a4357f)
+- [Powershell Commands](https://netwrix.com/en/resources/blog/powershell-commands-cheat-sheet/)
+- [The slides from 'System automation & scripting'](https://bamaflexweb.ehb.be/BMFUIDetailxOLOD.aspx?a=166508&b=5&c=1)
+- [HMACSHA256](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.hmacsha256?view=net-10.0)
+- [Example HMACSHA256](https://asecuritysite.com/powershell/enc06)
+- [Scheduled Tasks](https://www.pdq.com/blog/scheduled-tasks-in-powershell/)
+- [Backup Video](https://youtu.be/aYGdEDZHo60?si=ogV4PERLTwCUqMDt)
+- [Backups Explanation](https://www.acronis.com/en/blog/posts/incremental-differential-backups/)
+- [Powershell Documentation](https://learn.microsoft.com/en-us/powershell/)
+- [Manifest Documentation](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest?view=powershell-7.5)
+- [Pester Documentation](https://pester.dev/docs/quick-start)
+- [CI Workflow](https://chatgpt.com/share/6955b20c-0c14-8007-8ec1-9b7525d9f1de)
+- [Trigger task on event](https://stackoverflow.com/questions/57552869/register-scheduled-task-with-new-scheduledtasktrigger-to-trigger-on-event-id)
+---
+
+
+## AI Assistance
+
+### Used Prompts in claude 4.5 sonnet vs code
+
+I have noticed that when I sign a report, I currently only store a hash. If someone were to modify the report and then include the new hash in the signature, this would go unnoticed.
+
+To prevent this, I would like to use an HMAC, specifically HMAC‑SHA256. The hash should be calculated over the report content including the metadata and the report number bytes and the HMAC should be stored together with the signature
+
+I would like you to implement this approach for the reports. Additionally, I want this to work with the Credential Manager, so that the secret key used for the HMAC is stored securely rather than hard‑coded or stored in configuration files.
+
+Please also provide the command needed to store the secret in the Credential Manager.
+
+-----------------------------
+
+Based on my main orchestrator, Invoke-FileGuardian, create a comprehensive user guide that explains the structure and workflow in detail. The guide should provide step-by-step instructions for effective usage, with a professional layout featuring clear headings, subheadings and sections. Include examples illustrating typical usage scenarios, along with notes, tips and best practices to enhance understanding. Make sure to clearly explain all parameters, inputs and outputs. Including the data structures, so that the guide is readable and accessible for both beginners and advanced technical users.
+
+------------------------------
+
+How to implement a restore process for full and incremental backups. Focus on explaining the overall workflow.
+
+-----------------------------
+
+Refactor the tests to dot-source dependencies instead of importing modules for .ps1 files.
+
+-----------------------------
+### Generative AI disclosure
+AI tools were used to assist with this project, as referenced in the links and VS Code prompts above. All content produced with AI was carefully reviewed to ensure full understanding and accuracy. Most of the comment-based help, was initially generated with the help of auto-completion, but every section was thoroughly read and verified. While pushing in VS Code, the 'Generate Commit Message' feature was used.
+
 
 ## Testing
 
 FileGuardian includes comprehensive test coverage using Pester.
 
 **CI/CD:**  
-Automated testing runs via GitHub Actions on every push to `feature/*` and `fix/*` branches, with results published as test artifacts.
+Automated testing runs via GitHub Actions on every push to `feature/*`, `fix/*`, `improvement/*` and `main` branches, with results published as test artifacts.
 
 ---
 

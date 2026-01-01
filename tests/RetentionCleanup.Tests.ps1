@@ -3,7 +3,6 @@ BeforeAll {
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
 
-    # Dot-source functions under test
     $script:CleanupModulePath = Join-Path $ProjectRoot "src\Modules\Retention"
     . (Join-Path $script:CleanupModulePath "Invoke-BackupRetention.ps1")
     . (Join-Path $script:CleanupModulePath "Invoke-RetentionCleanup.ps1")

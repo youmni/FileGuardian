@@ -175,7 +175,7 @@ function Invoke-IncrementalBackup {
             
             Write-Log -Message "Previous state: $($previousState.FileCount) files, last backup at $($previousState.Timestamp)" -Level Info
             
-            # Get current state of source files (heavy operation)
+            # Get current state of source files
             Write-Log -Message "Scanning source directory and calculating hashes..." -Level Info
             Write-Progress -Activity "Hashing files" -Status "Calculating hashes..." -PercentComplete 0
             $currentFiles = Get-FileIntegrityHash -Path $SourcePath -Recurse -StateDirectory $stateDir
@@ -359,7 +359,7 @@ function Invoke-IncrementalBackup {
             }
             
             # Always save integrity state (update to reflect current state)
-            $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
+            $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns
             if ($backupInfo['IntegrityStateSaved']) {
                 Write-Log -Message "Integrity state saved for backup" -Level Info
             } else {
@@ -373,7 +373,7 @@ function Invoke-IncrementalBackup {
             $backupInfo['VerifiedBackupsOK'] = $verificationResult.VerifiedBackupsOK
             Write-Log -Message "Previous backups verification: Checked $($verificationResult.VerifiedCount), Corrupted $($verificationResult.CorruptedBackups.Count)" -Level Info
             
-            # Calculate duration and generate report (ALWAYS - this is mandatory)
+            # Calculate duration and generate report
             $endTime = Get-Date
             if ($startTime) {
                 $backupInfo['Duration'] = $endTime - $startTime

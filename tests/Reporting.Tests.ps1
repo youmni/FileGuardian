@@ -3,12 +3,11 @@ BeforeAll {
     $script:ReportingModulePath = Join-Path $ProjectRoot "src\Modules\Reporting"
     $script:LoggingModulePath = Join-Path $ProjectRoot "src\Modules\Logging"
     
-    # Import required modules
-    Import-Module (Join-Path $script:LoggingModulePath "Write-Log.ps1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Protect-Report.ps1") -Force
-    Import-Module (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1") -Force
+    . (Join-Path $script:LoggingModulePath "Write-Log.ps1")
+    . (Join-Path $script:ReportingModulePath "Write-JsonReport.ps1")
+    . (Join-Path $script:ReportingModulePath "Get-ReportSigningKey.ps1")
+    . (Join-Path $script:ReportingModulePath "Protect-Report.ps1")
+    . (Join-Path $script:ReportingModulePath "Confirm-ReportSignature.ps1")
 
     # Override Get-ReportSigningKey in tests to avoid depending on Windows Credential Manager
     function Get-ReportSigningKey {

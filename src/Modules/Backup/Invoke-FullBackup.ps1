@@ -227,7 +227,7 @@ function Invoke-FullBackup {
             }
             
             # Always save integrity state
-            $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress
+            $backupInfo['IntegrityStateSaved'] = Invoke-IntegrityStateSave -SourcePath $SourcePath -DestinationPath $DestinationPath -BackupName $backupInfo.DestinationPath -Compress $Compress -ExcludePatterns $ExcludePatterns
             if ($backupInfo['IntegrityStateSaved']) {
                 Write-Log -Message "Integrity state saved for backup" -Level Info
             } else {
