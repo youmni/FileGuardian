@@ -126,6 +126,7 @@ Describe "Invoke-FullBackup" {
                 LogDirectory = "C:\TestLogs"
                 ReportFormat = "JSON"
                 DefaultBackupType = "Full"
+                ReportOutputPath = "C:\Tests\Reports"
             }
             BackupSettings = @{
                 DestinationPath = $script:TestDestPath
