@@ -16,12 +16,12 @@
       "Name": "aklaa",
       "Enabled": true,
       "SourcePath": "C:\\Users\\Youmni Malha\\Documents\\Projects\\aklaa",
-      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\backups",
-      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\backups-aklaa\\reports",
+      "BackupPath": "C:\\Users\\Youmni Malha\\Documents\\aklaa\\backups",
+      "ReportOutputPath": "C:\\Users\\Youmni Malha\\Documents\\aklaa\\reports",
       "BackupType": "Full",
       "Schedule": {
         "Frequency": "Daily",
-        "Time": "16:23",
+        "Time": "13:08",
         "DaysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
       },
       "CompressBackups": true,

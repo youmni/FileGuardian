@@ -97,7 +97,7 @@ Invoke-FileGuardian @backupParams
 
 FileGuardian uses a **3-level priority system** for settings:
 
-1. **Environment variable** `FILEGUARDIAN_CONFIG` (highest priority) — set this to a custom config file path to override defaults.
+1. **Environment variable or explicitly given config path** `FILEGUARDIAN_CONFIG_PATH` (highest priority) — set this to a custom config file path to override defaults. You can also give a config path to FileGuardian.
 2. **Command-line parameters** — explicit values passed to `Invoke-FileGuardian`.
 3. **Hardcoded defaults** (lowest priority) — built-in fallbacks.
 
@@ -364,7 +364,7 @@ Invoke-FileGuardian @r
 | `-ReportPath` | Yes | Path to the report file |
 
 **What Gets Verified:**
-- Report signature (SHA256 hash)
+- Report signature (HMACSHA256 hash)
 - Report hasn't been tampered with
 - Signature file exists
 
@@ -387,24 +387,14 @@ Report signature is VALID
 
 ### Restore Operations
 
-Restore files from a backup (folder or compressed ZIP). Use the `Restore` action and provide the `-BackupPath` and `-DestinationPath`.
+Restore files from a backup. Use the `Restore` action and provide the `-BackupDirectory` and `-RestoreDirectory`.
 
-**Restore Uncompressed Backup (folder):**
+**Restore Backups:**
 ```powershell
 $restore = @{
   Action = 'Restore'
-  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000'
-  DestinationPath = 'C:\Restore\Projects'
-}
-Invoke-FileGuardian @restore
-```
-
-**Restore From ZIP:**
-```powershell
-$restore = @{
-  Action = 'Restore'
-  BackupPath = 'D:\Backups\Projects\WeeklyFullBackup_20251214_150000.zip'
-  DestinationPath = 'C:\Restore\Projects'
+  BackupDirectory = "C:\Temp\aklaa\backups"
+  RestoreDirectory = 'C:\Temp\aklaa\restore'
 }
 Invoke-FileGuardian @restore
 ```
@@ -414,8 +404,8 @@ Invoke-FileGuardian @restore
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `-Action` | Yes | Must be `Restore` |
-| `-BackupPath` | Yes | Path to backup folder or ZIP file |
-| `-DestinationPath` | Yes | Where to restore files |
+| `-BackupDirectory` | Yes | Path to backup folder |
+| `-RestoreDirectory` | Yes | Where to restore files and folders |
 
 **What Gets Restored:**
 - Files and directories

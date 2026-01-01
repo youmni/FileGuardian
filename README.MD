@@ -35,7 +35,7 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
 
 - **Comprehensive Reporting**  
   - Multiple output formats: JSON, HTML or CSV
-  - Digital signatures (SHA256) for tamper detection
+  - Digital signatures (HMACSHA256) for tamper detection
   - Detailed backup statistics and change summaries
   - Previous backup verification results included in reports
 
@@ -87,6 +87,17 @@ FileGuardian offers flexible backup strategies, automated scheduling via Windows
    # Set environment variable to absolute path of your config file
    [Environment]::SetEnvironmentVariable('FILEGUARDIAN_CONFIG_PATH', <PATH>, 'User')
    ```
+
+3. **Set credential storage**
+   Install and use the CredentialManager module to securely store the report signing secret:
+
+  ```powershell
+  Install-Module -Name CredentialManager -Scope CurrentUser
+  $bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $secret = [Convert]::ToBase64String($bytes)
+  New-StoredCredential -Target "FileGuardian.ReportSigning" -UserName "FileGuardian" -Password $secret -Persist LocalMachine
+  Get-StoredCredential -Target "FileGuardian.ReportSigning"
+  ```
 ---
 
 ## Documentation
