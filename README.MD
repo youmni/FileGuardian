@@ -142,6 +142,7 @@ Comprehensive guides are available in the `docs/` directory:
 - [CI Workflow](https://chatgpt.com/share/6955b20c-0c14-8007-8ec1-9b7525d9f1de)
 - [Trigger task on event](https://stackoverflow.com/questions/57552869/register-scheduled-task-with-new-scheduledtasktrigger-to-trigger-on-event-id)
 - [Splatting](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_splatting?view=powershell-5.1)
+- [Windows Credential Manager](https://childebrandt42.blog/2024/04/23/unlocking-secrets-a-guide-to-windows-credential-manager-in-powershell/)
 ---
 
 
